@@ -1,5 +1,7 @@
+from telepat.memory.adapter import MemoryAdapter
 from telepat.memory.compact import compact_memory
 from telepat.memory.identity import legacy_memory_user_id
+from telepat.memory.service import memory_adapter
 
 
 def test_legacy_id_is_stable_positive_integer() -> None:
@@ -33,3 +35,7 @@ def test_compact_memory_limits_payload() -> None:
     assert len(memory["facts"]) == 30
     assert len(memory["semantic_context"]) == 5
     assert len(memory["recent_messages"]) == 10
+
+
+def test_memory_service_implements_adapter_contract() -> None:
+    assert isinstance(memory_adapter, MemoryAdapter)
