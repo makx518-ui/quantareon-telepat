@@ -183,6 +183,12 @@ class VoiceSession:
                     "final": True,
                 }
             )
+            await self.websocket.send_json(
+                {
+                    "type": "state",
+                    "state": "thinking",
+                }
+            )
 
             response = await orchestrator.handle_chat(
                 ChatRequest(
