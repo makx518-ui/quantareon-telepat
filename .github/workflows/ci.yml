@@ -35,6 +35,12 @@ jobs:
         run: |
           python -m compileall -q telepat deploy main.py
 
+      - name: Frontend syntax
+        run: |
+          node --check frontend/telepat-session.js
+          node --check frontend/telepat-voice.js
+          node --check frontend/telepat-avatar.js
+
       - name: Test
         env:
           TELEPAT_CONVERSATION_PROVIDER: mock
