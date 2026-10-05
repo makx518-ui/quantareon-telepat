@@ -1,67 +1,94 @@
 # Modal setup
 
-TELEPAT uses one named Modal Secret for external provider credentials:
-`quantareon-telepat-secrets`.
+TELEPAT is deployed and tested through GitHub Actions. Local Modal CLI setup is
+not required for the normal development path.
 
-It may contain only the providers currently in use, for example:
+## GitHub -> Modal authentication
+
+Repository Actions secrets:
+
+- `MODAL_TOKEN_ID`
+- `MODAL_TOKEN_SECRET`
+
+Workflows normalize the stored values before passing them to Modal.
+
+## Provider credentials
+
+Real AI/voice/memory providers belong in one Modal Secret named:
+
+`quantareon-telepat-secrets`
+
+Supported environment names include:
 
 - `GEMINI_API_KEY`
 - `GROQ_API_KEY`
 - `DEEPGRAM_API_KEY`
 - `YANDEX_SPEECHKIT_API_KEY`
+- `YANDEX_IAM_TOKEN`
 - `YANDEX_FOLDER_ID`
 - `AZURE_SPEECH_KEY`
 - `AZURE_SPEECH_REGION`
 - `MEMORY_API_URL`
 - `MEMORY_API_KEY`
 
-Never commit real credentials or a populated `.env` file.
+The provider secret is optional at deployment time. Both Modal workflows detect
+whether it exists:
 
-## Preferred path: GitHub Actions -> Modal
+- absent -> deterministic core and fallback behavior are tested
+- present -> the same workflows attach it automatically and test real providers
 
-Local Modal CLI setup is not required for normal TELEPAT validation.
+## GitHub Actions
 
-Repository Actions secrets required once:
+### TELEPAT CI
 
-- `MODAL_TOKEN_ID`
-- `MODAL_TOKEN_SECRET`
+Runs compileall and pytest on Python 3.12.
 
-Then run:
+### TELEPAT Modal Smoke
 
-`Actions -> TELEPAT Modal Smoke -> Run workflow`
+Runs `deploy/smoke.py` inside Modal.
 
-The workflow `.github/workflows/modal-smoke.yml` authenticates to Modal using
-those GitHub Secrets and runs:
+Always checks the deterministic Astrofractal and orchestration kernel. When
+provider credentials exist it also makes real Gemini/LLM/TTS/Deepgram checks
+and fails when a configured required provider is broken.
 
-    python -m modal run deploy/smoke.py
+### TELEPAT Modal Deploy
 
-Provider credentials stay in the Modal Secret
-`quantareon-telepat-secrets`; the GitHub workflow only needs the two Modal
-authentication values.
+Deploys the FastAPI application and then runs:
 
-## Provider smoke test
+- `deploy/live_api_smoke.py`
+- `deploy/live_voice_smoke.py`
 
-The private smoke function checks:
+The current development endpoint is:
 
-- deterministic Astrofractal + real Gemini Astro interpretation;
-- a real orchestrated conversation turn;
-- Russian TTS routing (Ermil, with Andrew fallback);
-- a real Deepgram WebSocket connection.
+`https://makx518--quantareon-telepat-web.modal.run`
 
-It returns only provider names, success flags and payload sizes. It does not
-print or return secret values.
+The live smoke verifies health/readiness, session bootstrap, chat and the real
+WebSocket route.
 
-This is intentionally a CI/CLI smoke test, not a public FastAPI debug endpoint.
+## CPU runtime
 
-## Deployment
+The CPU application contains:
 
-Production deployment entrypoint:
+- FastAPI
+- Session Manager
+- Orchestrator
+- Astrofractal
+- LLM Router
+- MemoryAdapter
+- Deepgram/TTS orchestration
 
-    modal deploy deploy/modal_app.py
+Until shared/persistent session state is attached, the Modal web function uses
+`max_containers=1` so one TELEPAT session is not split across separate
+in-memory processes.
 
-Development fallback, if local Modal CLI is intentionally configured:
+## GPU runtime
 
-    modal serve deploy/modal_app.py
+L4 registration is intentionally opt-in:
 
-The CPU web function and the L4 GPU avatar worker belong to the same Modal App:
-`quantareon-telepat`.
+`TELEPAT_REGISTER_GPU=1`
+
+The CPU backend deploys without GPU access. This prevents L4 billing/account
+requirements from blocking development of the conversation and voice stack.
+
+Enable GPU registration only when L4 access is ready and the lip-sync benchmark
+starts.
