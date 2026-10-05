@@ -39,7 +39,7 @@ jobs:
       - name: Install Modal CLI
         run: |
           python -m pip install --upgrade pip
-          pip install "modal>=1.6,<2"
+          pip install "modal>=1.6,<2" "websockets>=12,<16"
 
       - name: Detect TELEPAT provider secret
         shell: bash
@@ -107,8 +107,13 @@ jobs:
         continue-on-error: true
         run: python deploy/live_api_smoke.py
 
+      - name: Live voice WebSocket smoke
+        id: voice_smoke
+        continue-on-error: true
+        run: python deploy/live_voice_smoke.py
+
       - name: Modal stderr diagnostics
-        if: steps.live_smoke.outcome == 'failure'
+        if: steps.live_smoke.outcome == 'failure' || steps.voice_smoke.outcome == 'failure'
         shell: bash
         run: |
           CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
@@ -117,5 +122,5 @@ jobs:
             python -m modal app logs quantareon-telepat --tail 200 --source stderr --timestamps || true
 
       - name: Enforce live smoke
-        if: steps.live_smoke.outcome == 'failure'
+        if: steps.live_smoke.outcome == 'failure' || steps.voice_smoke.outcome == 'failure'
         run: exit 1
