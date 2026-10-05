@@ -18,7 +18,7 @@ smoke_image = (
         "kerykeion>=5.12,<6",
         "pyswisseph==2.10.3.2",
     )
-    .add_local_python_source("telepat")
+    .add_local_python_source("telepat", ignore=[])
 )
 
 
