@@ -40,6 +40,7 @@ jobs:
           node --check frontend/telepat-session.js
           node --check frontend/telepat-voice.js
           node --check frontend/telepat-avatar.js
+          node --check frontend/telepat-runtime.js
 
       - name: Test
         env:
