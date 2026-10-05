@@ -4,33 +4,47 @@ from typing import Any, Protocol
 
 
 class MemoryAdapter(Protocol):
-    async def recall_user(self, user_id: str) -> dict[str, Any]: ...
+    """Stable TELEPAT memory boundary used by orchestration code."""
 
-    async def store_turn(
+    @property
+    def configured(self) -> bool: ...
+
+    async def recall(
         self,
         *,
         user_id: str,
-        session_id: str,
-        role: str,
-        content: str,
-    ) -> None: ...
+        message: str,
+        level: str = "medium",
+    ) -> dict[str, Any]: ...
 
-    async def store_summary(self, *, user_id: str, session_id: str, summary: str) -> None: ...
+    async def store_exchange(
+        self,
+        *,
+        user_id: str,
+        message: str,
+        response_text: str,
+    ) -> None: ...
 
 
 class NullMemoryAdapter:
-    async def recall_user(self, user_id: str) -> dict[str, Any]:
-        return {}
+    @property
+    def configured(self) -> bool:
+        return False
 
-    async def store_turn(
+    async def recall(
         self,
         *,
         user_id: str,
-        session_id: str,
-        role: str,
-        content: str,
-    ) -> None:
-        return None
+        message: str,
+        level: str = "medium",
+    ) -> dict[str, Any]:
+        return {}
 
-    async def store_summary(self, *, user_id: str, session_id: str, summary: str) -> None:
+    async def store_exchange(
+        self,
+        *,
+        user_id: str,
+        message: str,
+        response_text: str,
+    ) -> None:
         return None
