@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import time
+from collections.abc import Callable
 from threading import RLock
 from uuid import uuid4
 
@@ -7,16 +10,80 @@ from .models import ConversationTurn, SessionState
 
 
 class SessionManager:
-    """In-process session store for the first integration phase.
+    """Bounded in-process session store for the current TELEPAT MVP.
 
-    The public interface is intentionally storage-agnostic. Later the existing
-    remote Memory service can back these operations without changing the
-    orchestrator.
+    The interface stays storage-agnostic so a shared store can replace this
+    implementation later without changing the orchestrator.
+
+    Current safeguards:
+    - stale sessions expire automatically;
+    - session count is bounded;
+    - conversation history is bounded;
+    - a session_id cannot be reused with a different user_id.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        ttl_seconds: float | None = None,
+        max_sessions: int | None = None,
+        max_history_turns: int | None = None,
+        clock: Callable[[], float] | None = None,
+    ) -> None:
+        self.ttl_seconds = float(
+            ttl_seconds
+            if ttl_seconds is not None
+            else os.getenv("TELEPAT_SESSION_TTL_SECONDS", "21600")
+        )
+        self.max_sessions = int(
+            max_sessions
+            if max_sessions is not None
+            else os.getenv("TELEPAT_MAX_SESSIONS", "1000")
+        )
+        self.max_history_turns = int(
+            max_history_turns
+            if max_history_turns is not None
+            else os.getenv("TELEPAT_MAX_HISTORY_TURNS", "60")
+        )
+
+        self._clock = clock or time.monotonic
         self._sessions: dict[str, SessionState] = {}
+        self._last_seen: dict[str, float] = {}
         self._lock = RLock()
+
+    def _touch_locked(self, session_id: str) -> None:
+        self._last_seen[session_id] = self._clock()
+
+    def _delete_locked(self, session_id: str) -> None:
+        self._sessions.pop(session_id, None)
+        self._last_seen.pop(session_id, None)
+
+    def _purge_stale_locked(self) -> None:
+        if self.ttl_seconds <= 0:
+            return
+
+        now = self._clock()
+        stale = [
+            session_id
+            for session_id, last_seen in self._last_seen.items()
+            if now - last_seen > self.ttl_seconds
+        ]
+        for session_id in stale:
+            self._delete_locked(session_id)
+
+    def _make_room_locked(self) -> None:
+        if self.max_sessions <= 0:
+            return
+
+        while len(self._sessions) >= self.max_sessions:
+            oldest = min(
+                self._last_seen,
+                key=self._last_seen.get,
+                default=None,
+            )
+            if oldest is None:
+                break
+            self._delete_locked(oldest)
 
     def get_or_create(
         self,
@@ -26,18 +93,28 @@ class SessionManager:
         language: str,
     ) -> SessionState:
         with self._lock:
+            self._purge_stale_locked()
+
             if session_id and session_id in self._sessions:
                 session = self._sessions[session_id]
-                if language:
-                    session.language = language
-                return session
 
+                # Never attach one browser identity to another user's session.
+                if user_id and session.user_id != user_id:
+                    session_id = None
+                else:
+                    if language:
+                        session.language = language
+                    self._touch_locked(session.session_id)
+                    return session
+
+            self._make_room_locked()
             session = SessionState(
                 session_id=session_id or str(uuid4()),
                 user_id=user_id or str(uuid4()),
                 language=language or "ru",
             )
             self._sessions[session.session_id] = session
+            self._touch_locked(session.session_id)
             return session
 
     def append(self, session_id: str, role: str, content: str) -> None:
@@ -46,6 +123,12 @@ class SessionManager:
             session.history.append(
                 ConversationTurn(role=role, content=content)
             )
+            if (
+                self.max_history_turns > 0
+                and len(session.history) > self.max_history_turns
+            ):
+                del session.history[:-self.max_history_turns]
+            self._touch_locked(session_id)
 
     def set_astro_summary(
         self,
@@ -54,6 +137,7 @@ class SessionManager:
     ) -> None:
         with self._lock:
             self._sessions[session_id].astro_summary = summary
+            self._touch_locked(session_id)
 
     def set_user_memory(
         self,
@@ -62,6 +146,7 @@ class SessionManager:
     ) -> None:
         with self._lock:
             self._sessions[session_id].user_memory = memory
+            self._touch_locked(session_id)
 
     def update_metadata(
         self,
@@ -70,10 +155,20 @@ class SessionManager:
     ) -> None:
         with self._lock:
             self._sessions[session_id].metadata.update(values)
+            self._touch_locked(session_id)
 
     def get(self, session_id: str) -> SessionState | None:
         with self._lock:
-            return self._sessions.get(session_id)
+            self._purge_stale_locked()
+            session = self._sessions.get(session_id)
+            if session is not None:
+                self._touch_locked(session_id)
+            return session
+
+    def count(self) -> int:
+        with self._lock:
+            self._purge_stale_locked()
+            return len(self._sessions)
 
 
 session_manager = SessionManager()
