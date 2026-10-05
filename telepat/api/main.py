@@ -4,9 +4,13 @@ from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from telepat.astro.models import AstroSummary, BirthData
+from telepat.api.session import (
+    SessionBootstrapRequest,
+    SessionBootstrapResponse,
+    bootstrap_session,
+)
 from telepat.api.status import provider_status
-from telepat.api.session import SessionBootstrapRequest, SessionBootstrapResponse, bootstrap_session
+from telepat.astro.models import AstroSummary, BirthData
 from telepat.astro.service import astro_service
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
@@ -27,20 +31,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-class SessionBootstrapRequest(BaseModel):
-    user_id: str | None = None
-    session_id: str | None = None
-    language: str = "ru"
-
-
-class SessionBootstrapResponse(BaseModel):
-    user_id: str
-    session_id: str
-    language: str
-    has_astro_summary: bool
-    has_user_memory: bool
 
 
 class AstroSessionRequest(BaseModel):
@@ -79,34 +69,15 @@ async def health_providers() -> dict[str, bool]:
 
 
 @app.post("/session/bootstrap", response_model=SessionBootstrapResponse)
-async def bootstrap_session(
+async def session_bootstrap(
     request: SessionBootstrapRequest,
 ) -> SessionBootstrapResponse:
-    """Create or resume the lightweight TELEPAT session before voice starts."""
-    session = session_manager.get_or_create(
-        session_id=request.session_id,
-        user_id=request.user_id,
-        language=request.language,
-    )
-    return SessionBootstrapResponse(
-        user_id=session.user_id,
-        session_id=session.session_id,
-        language=session.language,
-        has_astro_summary=session.astro_summary is not None,
-        has_user_memory=bool(session.user_memory),
-    )
+    return await bootstrap_session(request)
 
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     return await orchestrator.handle_chat(request)
-
-
-@app.post("/session/bootstrap", response_model=SessionBootstrapResponse)
-async def session_bootstrap(
-    request: SessionBootstrapRequest,
-) -> SessionBootstrapResponse:
-    return await bootstrap_session(request)
 
 
 @app.post("/session/astro", response_model=AstroSessionResponse)
