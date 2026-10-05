@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from telepat.api.main import app
+from telepat.llm.router import ConversationUnavailableError, llm_router
 
 
 client = TestClient(app)
@@ -33,3 +34,19 @@ def test_chat_reuses_session() -> None:
     assert second["session_id"] == first["session_id"]
     assert second["user_id"] == first["user_id"]
     assert second["intent"] == "personal_reflection"
+
+
+
+def test_chat_returns_503_when_real_llm_is_unavailable(monkeypatch) -> None:
+    async def unavailable(*args, **kwargs):
+        raise ConversationUnavailableError("provider outage")
+
+    monkeypatch.setattr(llm_router, "generate", unavailable)
+
+    response = client.post(
+        "/chat",
+        json={"message": "Привет", "language": "ru"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "conversation_provider_unavailable"
