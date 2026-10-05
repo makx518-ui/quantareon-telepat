@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from telepat.astro.models import AstroSummary, BirthData
+from telepat.api.status import provider_status
 from telepat.astro.service import astro_service
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
@@ -55,6 +56,11 @@ async def health() -> dict[str, object]:
             "avatar_gpu": False,
         },
     }
+
+
+@app.get("/health/providers")
+async def health_providers() -> dict[str, bool]:
+    return provider_status()
 
 
 @app.post("/chat", response_model=ChatResponse)
