@@ -44,7 +44,7 @@ class OpenAIConversationProvider(ConversationProvider):
         if not self.configured:
             raise RuntimeError("OPENAI_API_KEY is not configured")
 
-        model = settings.conversation_model or settings.openai_model
+        model = settings.model_for("openai", settings.openai_model)
         payload = {
             "model": model,
             "instructions": load_prompt("telepat.md"),
