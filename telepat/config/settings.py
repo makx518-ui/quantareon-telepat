@@ -19,7 +19,7 @@ class Settings:
         "TELEPAT_CONVERSATION_PROVIDER", "auto"
     ).lower()
     conversation_fallbacks: tuple[str, ...] = _csv(
-        "TELEPAT_CONVERSATION_FALLBACKS", "groq,gemini,mock"
+        "TELEPAT_CONVERSATION_FALLBACKS", "groq,gemini,openai,claude,mock"
     )
     conversation_model: str = os.getenv("TELEPAT_CONVERSATION_MODEL", "")
 
@@ -28,6 +28,14 @@ class Settings:
     )
     groq_model: str = os.getenv(
         "TELEPAT_GROQ_MODEL", "openai/gpt-oss-120b"
+    )
+    openai_model: str = os.getenv(
+        "TELEPAT_OPENAI_MODEL", "gpt-6-luna"
+    )
+    # Claude model is intentionally explicit because Anthropic model aliases
+    # can vary by account/region. TELEPAT_CONVERSATION_MODEL may override it.
+    claude_model: str = os.getenv(
+        "TELEPAT_CLAUDE_MODEL", ""
     )
 
     # Astrofractal interpretation is fixed to Gemini for the current design.
