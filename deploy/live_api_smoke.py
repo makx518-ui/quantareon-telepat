@@ -71,32 +71,66 @@ def main() -> None:
     assert readiness["core_ready"] is True
     assert readiness["astro_engine_ready"] is True
 
+    birth = {
+        "year": 2000,
+        "month": 1,
+        "day": 1,
+        "hour": 12,
+        "minute": 0,
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "timezone": "UTC",
+    }
+
     status, bootstrap = request_json(
         "POST",
         base + "/session/bootstrap",
         {
             "language": "ru",
-            "birth": {
-                "year": 2000,
-                "month": 1,
-                "day": 1,
-                "hour": 12,
-                "minute": 0,
-                "latitude": 0.0,
-                "longitude": 0.0,
-                "timezone": "UTC",
-            },
+            "birth": birth,
         },
         timeout=60,
     )
     assert status == 200, (status, bootstrap)
     assert bootstrap["user_id"]
     assert bootstrap["session_id"]
-    assert bootstrap["astro_status"] in {
-        "ready",
-        "cached",
-        "unavailable",
-    }
+
+    if readiness["astro_interpreter_ready"]:
+        assert bootstrap["astro_ready"] is True, bootstrap
+        assert bootstrap["astro_status"] in {"ready", "cached"}, bootstrap
+
+        status, cached_bootstrap = request_json(
+            "POST",
+            base + "/session/bootstrap",
+            {
+                "language": "ru",
+                "user_id": bootstrap["user_id"],
+                "session_id": bootstrap["session_id"],
+                "birth": birth,
+            },
+            timeout=60,
+        )
+        assert status == 200, (status, cached_bootstrap)
+        assert cached_bootstrap["astro_ready"] is True
+        assert cached_bootstrap["astro_status"] == "cached"
+
+        status, astro = request_json(
+            "POST",
+            base + "/session/astro",
+            {
+                "language": "ru",
+                "user_id": bootstrap["user_id"],
+                "session_id": bootstrap["session_id"],
+                "birth": birth,
+            },
+            timeout=60,
+        )
+        assert status == 200, (status, astro)
+        assert astro["summary"]["provider"] == "gemini"
+        assert astro["summary"]["overview"]
+    else:
+        assert bootstrap["astro_ready"] is False
+        assert bootstrap["astro_status"] == "unavailable"
 
     status, chat = request_json(
         "POST",
@@ -113,6 +147,11 @@ def main() -> None:
     assert chat["reply"]
     assert chat["user_id"] == bootstrap["user_id"]
     assert chat["session_id"] == bootstrap["session_id"]
+
+    if readiness["conversation_ready"]:
+        assert chat["provider"] != "mock", chat
+    else:
+        assert chat["provider"] == "mock", chat
 
     print(
         json.dumps(
