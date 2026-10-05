@@ -2,7 +2,11 @@ import pytest
 
 from telepat.core.models import ContextPacket
 from telepat.llm.base import ConversationProvider
-from telepat.llm.router import LLMRouter, llm_router
+from telepat.llm.router import (
+    ConversationUnavailableError,
+    LLMRouter,
+    llm_router,
+)
 
 
 @pytest.mark.asyncio
@@ -65,7 +69,10 @@ async def test_real_provider_failure_does_not_fall_back_to_mock(
         intent="casual_conversation",
     )
 
-    with pytest.raises(RuntimeError, match="broken:RuntimeError"):
+    with pytest.raises(
+        ConversationUnavailableError,
+        match="broken:RuntimeError",
+    ):
         await router.generate(context, provider="broken")
 
 
