@@ -16,6 +16,10 @@ from .openai import OpenAIConversationProvider
 logger = logging.getLogger(__name__)
 
 
+class ConversationUnavailableError(RuntimeError):
+    """Configured conversation providers exist but none can answer."""
+
+
 class LLMRouter:
     """Select a provider and return the real provider name used."""
 
@@ -96,7 +100,7 @@ class LLMRouter:
                 )
                 errors.append(f"{candidate.name}:{type(exc).__name__}")
 
-        raise RuntimeError(
+        raise ConversationUnavailableError(
             "No conversation provider succeeded"
             + (f" ({', '.join(errors)})" if errors else "")
         )
