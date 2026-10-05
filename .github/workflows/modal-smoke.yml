@@ -43,22 +43,12 @@ jobs:
             exit 1
           fi
 
-      - name: Validate Modal credential shape
+      - name: Validate Modal credential presence
         shell: bash
         run: |
-          bad=0
-          if [[ ! "$MODAL_TOKEN_ID" =~ ^ak-[A-Za-z0-9_-]+$ ]]; then
-            echo "::error::MODAL_TOKEN_ID has an invalid format. It must be the complete ak-... value with no spaces or line breaks."
-            bad=1
-          fi
-          if [[ ! "$MODAL_TOKEN_SECRET" =~ ^as-[A-Za-z0-9_-]+$ ]]; then
-            echo "::error::MODAL_TOKEN_SECRET has an invalid format. It must be the complete as-... value with no spaces or line breaks."
-            bad=1
-          fi
-          if [ "$bad" -ne 0 ]; then
-            exit 1
-          fi
-          echo "Modal credential shapes look valid."
+          test -n "$MODAL_TOKEN_ID"
+          test -n "$MODAL_TOKEN_SECRET"
+          echo "Modal credentials are present."
 
       - name: Install Modal CLI
         run: |
@@ -66,7 +56,15 @@ jobs:
           pip install "modal>=1.6,<2"
 
       - name: Verify Modal authentication
-        run: python -m modal token info
+        shell: bash
+        run: |
+          export MODAL_TOKEN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | tr -d '[:space:]')"
+          export MODAL_TOKEN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | tr -d '[:space:]')"
+          python -m modal token info
 
       - name: Run TELEPAT provider smoke
-        run: python -m modal run deploy/smoke.py
+        shell: bash
+        run: |
+          export MODAL_TOKEN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | tr -d '[:space:]')"
+          export MODAL_TOKEN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | tr -d '[:space:]')"
+          python -m modal run deploy/smoke.py
