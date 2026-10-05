@@ -358,15 +358,19 @@
       this.playback = audio;
 
       audio.onended = () => {
+        this._sendJson({ type: 'playback_end' });
         this.stopPlayback();
         dispatch('state', { state: 'listening' });
       };
       audio.onerror = () => {
+        this._sendJson({ type: 'playback_end' });
         this.stopPlayback();
         dispatch('error', { stage: 'playback', error: 'audio playback failed' });
       };
 
       audio.play().catch((error) => {
+        this._sendJson({ type: 'playback_end' });
+        this.stopPlayback();
         dispatch('error', {
           stage: 'playback',
           error: String(error),
