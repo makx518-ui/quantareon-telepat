@@ -38,13 +38,21 @@ def build_context_packet(
     message: str,
     plan: OrchestrationPlan,
 ) -> ContextPacket:
+    history = session.history
+    if (
+        history
+        and history[-1].role == "user"
+        and history[-1].content == message
+    ):
+        history = history[:-1]
+
     return ContextPacket(
         session_id=session.session_id,
         user_id=session.user_id,
         language=session.language,
         current_message=message,
         intent=plan.intent,
-        conversation_history=session.history[-12:],
+        conversation_history=history[-12:],
         user_memory=session.user_memory if plan.use_memory else {},
         astro_summary=session.astro_summary if plan.use_astro else None,
         psychology=build_psychology_context(
