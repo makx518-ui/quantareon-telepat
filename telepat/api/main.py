@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from telepat.astro.models import AstroSummary, BirthData
 from telepat.api.status import provider_status
+from telepat.api.session import SessionBootstrapRequest, SessionBootstrapResponse, bootstrap_session
 from telepat.astro.service import astro_service
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
@@ -66,6 +67,13 @@ async def health_providers() -> dict[str, bool]:
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     return await orchestrator.handle_chat(request)
+
+
+@app.post("/session/bootstrap", response_model=SessionBootstrapResponse)
+async def session_bootstrap(
+    request: SessionBootstrapRequest,
+) -> SessionBootstrapResponse:
+    return await bootstrap_session(request)
 
 
 @app.post("/session/astro", response_model=AstroSessionResponse)
