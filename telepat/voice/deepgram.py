@@ -17,6 +17,58 @@ TranscriptCallback = Callable[[str], None | Awaitable[None]]
 EventCallback = Callable[[], None | Awaitable[None]]
 
 
+_DEEPGRAM_BASE_LANGUAGES = {
+    "ar", "be", "bg", "bn", "bs", "ca", "cs", "da", "de", "el", "en",
+    "es", "et", "fa", "fi", "fr", "gu", "he", "hi", "hr", "hu", "id",
+    "it", "ja", "kn", "ko", "lt", "lv", "mk", "mr", "ms", "nl", "no",
+    "pl", "pt", "ro", "ru", "sk", "sl", "sr", "sv", "ta", "te", "th",
+    "tl", "tr", "uk", "ur", "vi", "zh",
+}
+
+_DEEPGRAM_REGIONAL_LANGUAGES = {
+    "da-dk": "da-DK",
+    "de-ch": "de-CH",
+    "en-au": "en-AU",
+    "en-gb": "en-GB",
+    "en-in": "en-IN",
+    "en-nz": "en-NZ",
+    "en-us": "en-US",
+    "es-419": "es-419",
+    "fr-ca": "fr-CA",
+    "gu-in": "gu-IN",
+    "ko-kr": "ko-KR",
+    "nl-be": "nl-BE",
+    "pt-br": "pt-BR",
+    "pt-pt": "pt-PT",
+    "sv-se": "sv-SE",
+    "th-th": "th-TH",
+    "zh-cn": "zh-CN",
+    "zh-hans": "zh-Hans",
+    "zh-hant": "zh-Hant",
+    "zh-hk": "zh-HK",
+    "zh-tw": "zh-TW",
+}
+
+
+def normalize_deepgram_language(language: str | None) -> str:
+    value = (language or "multi").strip().replace("_", "-")
+    lowered = value.lower()
+
+    if lowered in {"", "auto", "multi"}:
+        return "multi"
+
+    if lowered in _DEEPGRAM_REGIONAL_LANGUAGES:
+        return _DEEPGRAM_REGIONAL_LANGUAGES[lowered]
+
+    base = lowered.split("-", 1)[0]
+    if base in _DEEPGRAM_BASE_LANGUAGES:
+        return base
+
+    # Unknown browser locales fall back to Nova-3 multilingual instead of
+    # being silently misclassified as Russian.
+    return "multi"
+
+
 class DeepgramStreamingSTT:
     """Cleaned streaming STT donor from QUANTARION Platform."""
 
@@ -31,7 +83,7 @@ class DeepgramStreamingSTT:
         on_speech_start: EventCallback | None = None,
     ) -> None:
         self.api_key = os.getenv("DEEPGRAM_API_KEY", "")
-        self.language = "en" if language.lower().startswith("en") else "ru"
+        self.language = normalize_deepgram_language(language)
         self.on_transcript = on_transcript
         self.on_interim = on_interim
         self.on_speech_start = on_speech_start
