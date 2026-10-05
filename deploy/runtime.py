@@ -3,7 +3,12 @@ from __future__ import annotations
 import modal
 
 
-app = modal.App("quantareon-telepat")
+telepat_secret = modal.Secret.from_name("quantareon-telepat-secrets")
+
+app = modal.App(
+    "quantareon-telepat",
+    secrets=[telepat_secret],
+)
 
 assets_volume = modal.Volume.from_name(
     "quantareon-telepat-assets",
