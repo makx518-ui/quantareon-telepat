@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
+from telepat.avatar.director import select_speaking_state
 from telepat.llm.router import llm_router
 from telepat.memory.compact import compact_memory
 from telepat.memory.remote import remote_memory
@@ -77,12 +78,19 @@ class Orchestrator:
                 )
             )
 
+        speaking_state = select_speaking_state(
+            intent=plan.intent,
+            user_message=request.message,
+            reply=reply,
+            session_id=session.session_id,
+        )
+
         return ChatResponse(
             reply=reply,
             user_id=session.user_id,
             session_id=session.session_id,
             intent=plan.intent,
-            avatar_state=plan.avatar_state,
+            avatar_state=speaking_state,
             provider=provider.name,
         )
 
