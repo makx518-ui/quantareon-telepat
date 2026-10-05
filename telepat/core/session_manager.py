@@ -63,6 +63,14 @@ class SessionManager:
         with self._lock:
             self._sessions[session_id].user_memory = memory
 
+    def update_metadata(
+        self,
+        session_id: str,
+        **values: object,
+    ) -> None:
+        with self._lock:
+            self._sessions[session_id].metadata.update(values)
+
     def get(self, session_id: str) -> SessionState | None:
         with self._lock:
             return self._sessions.get(session_id)

@@ -62,11 +62,17 @@
 
   async function bootstrap(options) {
     options = options || {};
-    const data = await post('/session/bootstrap', {
+    const payload = {
       user_id: options.userId || localUserId() || null,
       session_id: options.sessionId || currentSessionId() || null,
       language: options.language || document.documentElement.lang || 'ru'
-    });
+    };
+
+    if (options.birth) {
+      payload.birth = options.birth;
+    }
+
+    const data = await post('/session/bootstrap', payload);
 
     saveIdentity(data);
     global.dispatchEvent(new CustomEvent('telepat:session-ready', { detail: data }));
@@ -75,7 +81,9 @@
 
   async function prepareAstro(birth, options) {
     options = options || {};
-    const session = options.session || await bootstrap(options);
+    const session = options.session || await bootstrap(
+      Object.assign({}, options, { birth: birth })
+    );
 
     const data = await post('/session/astro', {
       birth: birth,

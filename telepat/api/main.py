@@ -8,10 +8,10 @@ from telepat.api.session import (
     SessionBootstrapRequest,
     SessionBootstrapResponse,
     bootstrap_session,
+    prepare_session_astro,
 )
 from telepat.api.status import provider_status
 from telepat.astro.models import AstroSummary, BirthData
-from telepat.astro.service import astro_service
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
 from telepat.core.session_manager import session_manager
@@ -92,9 +92,10 @@ async def prepare_astro_session(
     )
 
     try:
-        _calculation, summary = await astro_service.calculate_and_interpret(
-            request.birth,
-            language=request.language,
+        summary, _cached = await prepare_session_astro(
+            session_id=session.session_id,
+            birth=request.birth,
+            language=session.language,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -103,11 +104,6 @@ async def prepare_astro_session(
             status_code=500,
             detail="Astrofractal preparation failed",
         ) from exc
-
-    session_manager.set_astro_summary(
-        session.session_id,
-        summary.as_context(),
-    )
 
     return AstroSessionResponse(
         user_id=session.user_id,
