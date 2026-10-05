@@ -11,5 +11,8 @@ requires-python = ">=3.12"
 [tool.setuptools.packages.find]
 include = ["telepat*", "deploy*"]
 
+[tool.setuptools.package-data]
+"telepat.astro.engine" = ["*.md"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
