@@ -134,6 +134,18 @@
       this.starting = false;
       this.stopPlayback();
 
+      await this._cleanupMedia();
+
+      if (this.ws) {
+        const ws = this.ws;
+        this.ws = null;
+        try { ws.close(1000, 'client stop'); } catch (_) {}
+      }
+
+      dispatch('state', { state: 'stopped' });
+    }
+
+    async _cleanupMedia() {
       if (this.processor) {
         try { this.processor.disconnect(); } catch (_) {}
         this.processor.onaudioprocess = null;
@@ -152,15 +164,10 @@
         this.stream = null;
       }
       if (this.audioContext) {
-        try { await this.audioContext.close(); } catch (_) {}
+        const ctx = this.audioContext;
         this.audioContext = null;
+        try { await ctx.close(); } catch (_) {}
       }
-      if (this.ws) {
-        try { this.ws.close(1000, 'client stop'); } catch (_) {}
-        this.ws = null;
-      }
-
-      dispatch('state', { state: 'stopped' });
     }
 
     finalize() {
@@ -192,29 +199,54 @@
         ws.binaryType = 'blob';
         this.ws = ws;
 
-        const timeout = global.setTimeout(function () {
-          reject(new Error('TELEPAT WebSocket timeout'));
+        let settled = false;
+        const fail = (error) => {
+          if (settled) return;
+          settled = true;
+          global.clearTimeout(timeout);
+          reject(error);
+        };
+
+        const timeout = global.setTimeout(() => {
+          if (this.ws === ws) this.ws = null;
+          try { ws.close(); } catch (_) {}
+          fail(new Error('TELEPAT WebSocket timeout'));
         }, 15000);
 
-        ws.onopen = function () {
+        ws.onopen = () => {
+          if (settled) return;
+          settled = true;
           global.clearTimeout(timeout);
           resolve();
         };
 
-        ws.onerror = function () {
-          global.clearTimeout(timeout);
-          reject(new Error('TELEPAT WebSocket connection failed'));
+        ws.onerror = () => {
+          fail(new Error('TELEPAT WebSocket connection failed'));
         };
 
         ws.onmessage = (event) => this._onMessage(event);
         ws.onclose = (event) => {
-          if (this.active) {
-            this.active = false;
-            dispatch('state', {
-              state: 'disconnected',
-              code: event.code,
-              reason: event.reason || ''
-            });
+          const unexpected = this.ws === ws && (this.active || this.starting);
+          if (this.ws === ws) this.ws = null;
+
+          this.active = false;
+          this.starting = false;
+          this.stopPlayback();
+
+          this._cleanupMedia().finally(() => {
+            if (unexpected) {
+              dispatch('state', {
+                state: 'disconnected',
+                code: event.code,
+                reason: event.reason || ''
+              });
+            }
+          });
+
+          if (!settled) {
+            fail(new Error(
+              'TELEPAT WebSocket closed before connection was ready'
+            ));
           }
         };
       });
