@@ -81,12 +81,14 @@ class DeepgramStreamingSTT:
         on_transcript: TranscriptCallback | None = None,
         on_interim: TranscriptCallback | None = None,
         on_speech_start: EventCallback | None = None,
+        on_disconnect: EventCallback | None = None,
     ) -> None:
         self.api_key = os.getenv("DEEPGRAM_API_KEY", "")
         self.language = normalize_deepgram_language(language)
         self.on_transcript = on_transcript
         self.on_interim = on_interim
         self.on_speech_start = on_speech_start
+        self.on_disconnect = on_disconnect
 
         self._ws = None
         self._receive_task: asyncio.Task | None = None
@@ -155,9 +157,14 @@ class DeepgramStreamingSTT:
         self._closing = True
         self._connected = False
 
-        for task in (self._keepalive_task, self._receive_task):
-            if task:
-                task.cancel()
+        current = asyncio.current_task()
+        tasks = [
+            task
+            for task in (self._keepalive_task, self._receive_task)
+            if task is not None and task is not current
+        ]
+        for task in tasks:
+            task.cancel()
 
         if self._ws is not None:
             try:
@@ -168,6 +175,14 @@ class DeepgramStreamingSTT:
                 await self._ws.close()
             except Exception:
                 pass
+
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        self._keepalive_task = None
+        self._receive_task = None
+        self._ws = None
+        self._final_segments.clear()
 
     async def _keepalive_loop(self) -> None:
         try:
@@ -192,7 +207,10 @@ class DeepgramStreamingSTT:
             if not self._closing:
                 logger.warning("Deepgram receive stopped: %s", type(exc).__name__)
         finally:
+            was_unexpected = not self._closing
             self._connected = False
+            if was_unexpected:
+                await self._call(self.on_disconnect)
 
     async def _handle_message(self, payload: str) -> None:
         try:
@@ -201,6 +219,14 @@ class DeepgramStreamingSTT:
             return
 
         event_type = event.get("type")
+
+        if event_type == "Error":
+            description = (
+                event.get("description")
+                or event.get("message")
+                or "Deepgram stream error"
+            )
+            raise RuntimeError(str(description))
 
         if event_type == "SpeechStarted":
             # A fresh speech event must not inherit an unfinished stale buffer.
