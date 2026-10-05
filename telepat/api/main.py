@@ -15,6 +15,7 @@ from telepat.astro.models import AstroSummary, BirthData
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
 from telepat.core.session_manager import session_manager
+from telepat.llm.router import ConversationUnavailableError
 from telepat.voice.session import VoiceSession
 
 
@@ -82,7 +83,13 @@ async def session_bootstrap(
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
-    return await orchestrator.handle_chat(request)
+    try:
+        return await orchestrator.handle_chat(request)
+    except ConversationUnavailableError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="conversation_provider_unavailable",
+        ) from exc
 
 
 @app.post("/session/astro", response_model=AstroSessionResponse)
