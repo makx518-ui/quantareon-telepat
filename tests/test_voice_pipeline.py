@@ -1,6 +1,8 @@
 import asyncio
 import json
 
+import pytest
+
 from telepat.voice.deepgram import DeepgramStreamingSTT, normalize_deepgram_language
 from telepat.voice.microsoft_tts import microsoft_tts
 from telepat.voice.session import VoiceSession
@@ -273,3 +275,31 @@ def test_voice_session_closes_browser_when_stt_disconnects() -> None:
         1011,
         "upstream stt disconnected",
     )
+
+
+
+@pytest.mark.asyncio
+async def test_voice_session_close_awaits_background_tasks() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+
+    response_task = asyncio.create_task(asyncio.sleep(60))
+    processor_task = asyncio.create_task(asyncio.sleep(60))
+    session._response_task = response_task
+    session._processor_task = processor_task
+    session._audio_playback_active = True
+
+    await asyncio.sleep(0)
+    await session.close()
+
+    assert response_task.done()
+    assert processor_task.done()
+    assert session._response_task is None
+    assert session._processor_task is None
+    assert session._audio_playback_active is False
+    assert websocket.closed is not None
