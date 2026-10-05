@@ -59,8 +59,7 @@ class Orchestrator:
             plan,
         )
 
-        provider = llm_router.get()
-        reply = await provider.generate(context)
+        reply, provider_name = await llm_router.generate(context)
 
         session_manager.append(
             session.session_id,
@@ -91,7 +90,7 @@ class Orchestrator:
             session_id=session.session_id,
             intent=plan.intent,
             avatar_state=speaking_state,
-            provider=provider.name,
+            provider=provider_name,
         )
 
     @staticmethod
