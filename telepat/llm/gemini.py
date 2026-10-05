@@ -1,76 +1,43 @@
 from __future__ import annotations
 
+import asyncio
 import os
 
-import httpx
-
+from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
+
 from .base import ConversationProvider
-from .prompt import build_system_prompt
+from .prompt import build_context_payload, load_prompt
 
 
 class GeminiConversationProvider(ConversationProvider):
     name = "gemini"
 
-    def __init__(self) -> None:
-        self.api_key = os.getenv("GEMINI_API_KEY", "")
-        self.model = os.getenv("GEMINI_MODEL", "")
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta"
-
     @property
     def configured(self) -> bool:
-        return bool(self.api_key and self.model)
+        return bool(os.getenv("GEMINI_API_KEY"))
 
     async def generate(self, context: ContextPacket) -> str:
         if not self.configured:
-            raise RuntimeError("Gemini provider is not configured")
+            raise RuntimeError("GEMINI_API_KEY is not configured")
 
-        contents: list[dict] = []
-        for turn in context.conversation_history:
-            role = "model" if turn.role == "assistant" else "user"
-            contents.append(
-                {
-                    "role": role,
-                    "parts": [{"text": turn.content}],
-                }
+        model = settings.conversation_model or settings.gemini_model
+        prompt = build_context_payload(context)
+        system_instruction = load_prompt("telepat.md")
+
+        def _call() -> str:
+            from google import genai
+
+            client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+            interaction = client.interactions.create(
+                model=model,
+                input=prompt,
+                system_instruction=system_instruction,
+                store=False,
             )
+            text = (interaction.output_text or "").strip()
+            if not text:
+                raise RuntimeError("Gemini returned an empty response")
+            return text
 
-        if not contents or (
-            contents[-1].get("role") != "user"
-            or contents[-1]["parts"][0].get("text") != context.current_message
-        ):
-            contents.append(
-                {"role": "user", "parts": [{"text": context.current_message}]}
-            )
-
-        payload = {
-            "systemInstruction": {
-                "parts": [{"text": build_system_prompt(context)}]
-            },
-            "contents": contents,
-            "generationConfig": {
-                "temperature": 0.55,
-                "maxOutputTokens": 1200,
-            },
-        }
-
-        url = f"{self.base_url}/models/{self.model}:generateContent"
-        headers = {
-            "x-goog-api-key": self.api_key,
-            "Content-Type": "application/json",
-        }
-
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
-
-        candidates = data.get("candidates") or []
-        if not candidates:
-            raise RuntimeError("Gemini returned no candidates")
-
-        parts = ((candidates[0].get("content") or {}).get("parts") or [])
-        text = "".join(part.get("text", "") for part in parts).strip()
-        if not text:
-            raise RuntimeError("Gemini returned an empty response")
-        return text
+        return await asyncio.to_thread(_call)
