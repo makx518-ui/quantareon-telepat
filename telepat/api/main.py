@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -19,7 +21,14 @@ from telepat.llm.router import ConversationUnavailableError
 from telepat.voice.session import VoiceSession
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    yield
+    await orchestrator.drain_background()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="QUANTAREON TELEPAT",
     version="0.4.0",
     description="Live AI astropsychologist integration backend.",
