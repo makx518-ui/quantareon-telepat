@@ -298,6 +298,11 @@
         return;
       }
 
+      if (type === 'state') {
+        dispatch('state', message);
+        return;
+      }
+
       if (type === 'barge_in') {
         this.stopPlayback();
         dispatch('barge-in', message);
