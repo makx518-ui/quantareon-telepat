@@ -103,13 +103,26 @@ class VoiceSession:
         if self._closed:
             return
         self._closed = True
+        self._audio_playback_active = False
 
-        if self._response_task and not self._response_task.done():
-            self._response_task.cancel()
-        if self._processor_task:
-            self._processor_task.cancel()
+        current = asyncio.current_task()
+        tasks = [
+            task
+            for task in (self._response_task, self._processor_task)
+            if task is not None and task is not current
+        ]
+
+        for task in tasks:
+            if not task.done():
+                task.cancel()
 
         await self.stt.close()
+
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        self._response_task = None
+        self._processor_task = None
 
         try:
             await self.websocket.close()
