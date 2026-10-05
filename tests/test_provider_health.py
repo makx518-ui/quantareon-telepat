@@ -20,6 +20,8 @@ def test_provider_health_exposes_only_booleans() -> None:
 def test_readiness_separates_core_from_external_providers(monkeypatch) -> None:
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
     monkeypatch.delenv("YANDEX_SPEECHKIT_API_KEY", raising=False)
     monkeypatch.delenv("YANDEX_IAM_TOKEN", raising=False)
