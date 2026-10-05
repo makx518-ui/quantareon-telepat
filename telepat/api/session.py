@@ -12,7 +12,7 @@ from telepat.astro.service import astro_service
 from telepat.core.models import SessionState
 from telepat.core.session_manager import session_manager
 from telepat.memory.compact import compact_memory
-from telepat.memory.remote import remote_memory
+from telepat.memory.service import memory_adapter
 
 
 logger = logging.getLogger(__name__)
@@ -45,10 +45,10 @@ def _birth_fingerprint(birth: BirthData) -> str:
 
 
 async def _bootstrap_memory(session: SessionState) -> bool:
-    if not remote_memory.configured:
+    if not memory_adapter.configured:
         return bool(session.user_memory)
 
-    recalled = await remote_memory.recall(
+    recalled = await memory_adapter.recall(
         user_id=session.user_id,
         message="session bootstrap",
         level="simple",
