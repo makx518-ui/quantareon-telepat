@@ -1,41 +1,47 @@
 # Modal setup
 
-TELEPAT uses one named Modal Secret for external credentials.
+TELEPAT uses one named Modal Secret for external provider credentials:
+`quantareon-telepat-secrets`.
 
-Create it locally after `modal setup`:
+It may contain only the providers currently in use, for example:
 
-    modal secret create quantareon-telepat-secrets \
-      GEMINI_API_KEY=... \
-      GROQ_API_KEY=... \
-      DEEPGRAM_API_KEY=... \
-      YANDEX_SPEECHKIT_API_KEY=... \
-      YANDEX_FOLDER_ID=... \
-      MEMORY_API_URL=...
+- `GEMINI_API_KEY`
+- `GROQ_API_KEY`
+- `DEEPGRAM_API_KEY`
+- `YANDEX_SPEECHKIT_API_KEY`
+- `YANDEX_FOLDER_ID`
+- `AZURE_SPEECH_KEY`
+- `AZURE_SPEECH_REGION`
+- `MEMORY_API_URL`
+- `MEMORY_API_KEY`
 
-Only include keys that are currently used. The secret can be updated later.
+Never commit real credentials or a populated `.env` file.
 
-Do not commit a real `.env` file or credentials to GitHub.
+## Preferred path: GitHub Actions -> Modal
 
-Deployment entrypoint:
+Local Modal CLI setup is not required for normal TELEPAT validation.
 
-    modal deploy deploy/modal_app.py
+Repository Actions secrets required once:
 
-Development run:
+- `MODAL_TOKEN_ID`
+- `MODAL_TOKEN_SECRET`
 
-    modal serve deploy/modal_app.py
+Then run:
 
-The CPU web function and future GPU avatar worker belong to the same Modal App:
-`quantareon-telepat`.
+`Actions -> TELEPAT Modal Smoke -> Run workflow`
+
+The workflow `.github/workflows/modal-smoke.yml` authenticates to Modal using
+those GitHub Secrets and runs:
+
+    python -m modal run deploy/smoke.py
+
+Provider credentials stay in the Modal Secret
+`quantareon-telepat-secrets`; the GitHub workflow only needs the two Modal
+authentication values.
 
 ## Provider smoke test
 
-Before connecting the production TELEPAT page, run the private Modal smoke
-function:
-
-    modal run deploy/smoke.py
-
-The smoke run executes inside Modal with `quantareon-telepat-secrets` and
-checks:
+The private smoke function checks:
 
 - deterministic Astrofractal + real Gemini Astro interpretation;
 - a real orchestrated conversation turn;
@@ -45,4 +51,17 @@ checks:
 It returns only provider names, success flags and payload sizes. It does not
 print or return secret values.
 
-This is intentionally a CLI smoke test, not a public FastAPI debug endpoint.
+This is intentionally a CI/CLI smoke test, not a public FastAPI debug endpoint.
+
+## Deployment
+
+Production deployment entrypoint:
+
+    modal deploy deploy/modal_app.py
+
+Development fallback, if local Modal CLI is intentionally configured:
+
+    modal serve deploy/modal_app.py
+
+The CPU web function and the L4 GPU avatar worker belong to the same Modal App:
+`quantareon-telepat`.
