@@ -30,12 +30,6 @@ class Orchestrator:
             language=request.language,
         )
 
-        session_manager.append(
-            session.session_id,
-            "user",
-            request.message,
-        )
-
         intent = classify_intent(
             request.message,
             has_astro=session.astro_summary is not None,
@@ -62,6 +56,14 @@ class Orchestrator:
 
         reply, provider_name = await llm_router.generate(context)
 
+        # Commit the exchange only after a real response succeeds. This keeps
+        # retries idempotent at the session-history level when a provider is
+        # temporarily unavailable.
+        session_manager.append(
+            session.session_id,
+            "user",
+            request.message,
+        )
         session_manager.append(
             session.session_id,
             "assistant",
