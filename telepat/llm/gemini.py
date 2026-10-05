@@ -22,7 +22,7 @@ class GeminiConversationProvider(ConversationProvider):
         if not self.configured:
             raise RuntimeError("GEMINI_API_KEY is not configured")
 
-        model = settings.conversation_model or settings.gemini_model
+        model = settings.model_for("gemini", settings.gemini_model)
         prompt = build_context_payload(context)
         system_instruction = load_prompt("telepat.md")
 
