@@ -52,12 +52,37 @@ class LLMRouter:
         provider: str | None = None,
     ) -> tuple[str, str]:
         errors: list[str] = []
+        order = self._order(provider)
 
-        for name in self._order(provider):
+        explicit_name = (
+            provider
+            or settings.conversation_provider
+            or "auto"
+        ).lower()
+        explicit_mock = explicit_name == "mock"
+
+        configured_real = {
+            name
+            for name in order
+            if name != "mock"
+            and (candidate := self.get(name)) is not None
+            and candidate.configured
+        }
+
+        for name in order:
             candidate = self.get(name)
             if candidate is None:
                 continue
             if not candidate.configured:
+                continue
+
+            # A configured real provider failing must surface as a real error,
+            # not silently turn TELEPAT into the development mock persona.
+            if (
+                candidate.name == "mock"
+                and configured_real
+                and not explicit_mock
+            ):
                 continue
 
             try:
