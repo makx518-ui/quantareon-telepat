@@ -48,5 +48,19 @@ class Settings:
 
     memory_api_url: str = os.getenv("MEMORY_API_URL", "")
 
+    def model_for(self, provider: str, provider_default: str) -> str:
+        """Resolve a model without leaking one provider's model into fallbacks.
+
+        TELEPAT_CONVERSATION_MODEL is a compatibility override and is applied
+        only when TELEPAT_CONVERSATION_PROVIDER explicitly names that provider.
+        In auto mode every provider keeps its own model setting.
+        """
+        if (
+            self.conversation_provider == provider.lower()
+            and self.conversation_model
+        ):
+            return self.conversation_model
+        return provider_default
+
 
 settings = Settings()
