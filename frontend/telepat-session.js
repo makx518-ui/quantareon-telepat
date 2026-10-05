@@ -9,7 +9,10 @@
 (function (global) {
   'use strict';
 
-  function apiBase() {
+  function apiBase(override) {
+    if (override) {
+      return String(override).replace(/\/$/, '');
+    }
     if (global.TELEPAT_API_URL) {
       return String(global.TELEPAT_API_URL).replace(/\/$/, '');
     }
@@ -46,8 +49,8 @@
     } catch (_) {}
   }
 
-  async function post(path, payload) {
-    const response = await fetch(apiBase() + path, {
+  async function post(path, payload, apiUrl) {
+    const response = await fetch(apiBase(apiUrl) + path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -72,7 +75,7 @@
       payload.birth = options.birth;
     }
 
-    const data = await post('/session/bootstrap', payload);
+    const data = await post('/session/bootstrap', payload, options.apiUrl);
 
     saveIdentity(data);
     global.dispatchEvent(new CustomEvent('telepat:session-ready', { detail: data }));
@@ -90,7 +93,7 @@
       user_id: session.user_id,
       session_id: session.session_id,
       language: options.language || session.language || 'ru'
-    });
+    }, options.apiUrl);
 
     saveIdentity(data);
     global.dispatchEvent(new CustomEvent('telepat:astro-ready', { detail: data }));
