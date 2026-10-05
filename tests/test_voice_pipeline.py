@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from telepat.voice.deepgram import DeepgramStreamingSTT
+from telepat.voice.deepgram import DeepgramStreamingSTT, normalize_deepgram_language
 from telepat.voice.microsoft_tts import microsoft_tts
 from telepat.voice.tts_router import TTSRouter
 from telepat.voice.yandex_tts import yandex_tts
@@ -55,6 +55,19 @@ def test_deepgram_ru_uses_nova3_streaming_options() -> None:
     assert "interim_results=true" in url
     assert "vad_events=true" in url
 
+
+
+
+def test_deepgram_preserves_supported_languages() -> None:
+    assert normalize_deepgram_language("de") == "de"
+    assert normalize_deepgram_language("uk-UA") == "uk"
+    assert normalize_deepgram_language("pt_BR") == "pt-BR"
+    assert normalize_deepgram_language("zh-HK") == "zh-HK"
+
+
+def test_deepgram_unknown_language_uses_multilingual() -> None:
+    assert normalize_deepgram_language("xx-YY") == "multi"
+    assert normalize_deepgram_language("auto") == "multi"
 
 def test_ru_tts_falls_back_to_microsoft(monkeypatch) -> None:
     monkeypatch.setattr(yandex_tts, "api_key", "test-key")
