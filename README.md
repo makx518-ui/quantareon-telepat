@@ -35,6 +35,7 @@ Browser microphone
       -> cached AstroSummary
       -> Psychology / Empathy / Integrator context
   -> Conversation LLM Router
+      -> Groq / Gemini / OpenAI / Claude / mock fallback
   -> TTS Router
       -> Yandex SpeechKit / Ermil (RU)
       -> Microsoft Andrew Multilingual (fallback / other languages)
