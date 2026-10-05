@@ -7,7 +7,7 @@ from telepat.avatar.director import select_speaking_state
 from telepat.avatar.state_selector import select_avatar_state
 from telepat.llm.router import llm_router
 from telepat.memory.compact import compact_memory
-from telepat.memory.remote import remote_memory
+from telepat.memory.service import memory_adapter
 
 from .context_builder import build_context_packet, classify_intent
 from .models import ChatRequest, ChatResponse
@@ -42,8 +42,8 @@ class Orchestrator:
         )
         plan = build_plan(intent)
 
-        if plan.use_memory and remote_memory.configured:
-            recalled = await remote_memory.recall(
+        if plan.use_memory and memory_adapter.configured:
+            recalled = await memory_adapter.recall(
                 user_id=session.user_id,
                 message=request.message,
                 level=self._memory_level(plan),
@@ -68,10 +68,10 @@ class Orchestrator:
             reply,
         )
 
-        if remote_memory.configured:
+        if memory_adapter.configured:
             # Persistence is intentionally off the critical response path.
             asyncio.create_task(
-                remote_memory.store_exchange(
+                memory_adapter.store_exchange(
                     user_id=session.user_id,
                     message=request.message,
                     response_text=reply,
