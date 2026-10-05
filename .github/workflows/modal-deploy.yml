@@ -24,6 +24,7 @@ jobs:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       TELEPAT_ATTACH_PROVIDER_SECRET: "0"
+      TELEPAT_REGISTER_GPU: "0"
 
     steps:
       - name: Checkout
@@ -40,6 +41,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install "modal>=1.6,<2"
 
+      - name: Detect TELEPAT provider secret
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
+            python -m modal secret list --json > modal-secrets.json
+
+          python - <<'PY'
+          import json, os
+
+          with open("modal-secrets.json", encoding="utf-8") as fh:
+              data = json.load(fh)
+
+          def contains_name(value):
+              if isinstance(value, dict):
+                  if value.get("name") == "quantareon-telepat-secrets":
+                      return True
+                  return any(contains_name(item) for item in value.values())
+              if isinstance(value, list):
+                  return any(contains_name(item) for item in value)
+              return value == "quantareon-telepat-secrets"
+
+          attach = contains_name(data)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
+              fh.write(
+                  "TELEPAT_ATTACH_PROVIDER_SECRET="
+                  + ("1" if attach else "0")
+                  + "\n"
+              )
+          print("Provider secret:", "attached" if attach else "not present")
+          PY
+
       - name: Deploy TELEPAT
         shell: bash
         run: |
@@ -52,12 +86,13 @@ jobs:
             python -m modal deploy deploy/modal_app.py 2>&1 | tee modal-deploy.log
 
           ENDPOINT="$(grep -Eo 'https://[A-Za-z0-9._-]+\.modal\.run' modal-deploy.log | head -n1 || true)"
-          if [ -n "$ENDPOINT" ]; then
-            echo "TELEPAT_ENDPOINT=$ENDPOINT" >> "$GITHUB_ENV"
-            echo "Endpoint discovered."
-          else
-            echo "::warning::Modal deploy succeeded but endpoint URL was not parsed from CLI output."
+          if [ -z "$ENDPOINT" ]; then
+            echo "::error::Modal deploy completed without a discoverable endpoint URL."
+            exit 1
           fi
+
+          echo "TELEPAT_ENDPOINT=$ENDPOINT" >> "$GITHUB_ENV"
+          echo "Endpoint discovered."
 
       - name: Modal app info
         shell: bash
@@ -67,34 +102,13 @@ jobs:
           MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
             python -m modal app info quantareon-telepat --no-color
 
-      - name: Health smoke
-        id: health
-        if: env.TELEPAT_ENDPOINT != ''
+      - name: Live API smoke
+        id: live_smoke
         continue-on-error: true
-        shell: bash
-        run: |
-          python - <<'PY'
-          import json, os, time, urllib.request
-
-          base = os.environ["TELEPAT_ENDPOINT"].rstrip("/")
-          last = None
-          for attempt in range(4):
-              try:
-                  with urllib.request.urlopen(base + "/health", timeout=12) as r:
-                      data = json.loads(r.read().decode("utf-8"))
-                  if data.get("ok") is True:
-                      print(json.dumps(data, ensure_ascii=False))
-                      raise SystemExit(0)
-                  last = data
-              except Exception as exc:
-                  last = repr(exc)
-              time.sleep(4)
-
-          raise SystemExit(f"Health check failed: {last}")
-          PY
+        run: python deploy/live_api_smoke.py
 
       - name: Modal stderr diagnostics
-        if: steps.health.outcome == 'failure'
+        if: steps.live_smoke.outcome == 'failure'
         shell: bash
         run: |
           CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
@@ -102,6 +116,6 @@ jobs:
           MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
             python -m modal app logs quantareon-telepat --tail 200 --source stderr --timestamps || true
 
-      - name: Enforce health result
-        if: steps.health.outcome == 'failure'
+      - name: Enforce live smoke
+        if: steps.live_smoke.outcome == 'failure'
         run: exit 1
