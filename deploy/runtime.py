@@ -36,6 +36,7 @@ cpu_image = (
         "pyswisseph==2.10.3.2",
     )
     .add_local_python_source("telepat", ignore=[])
+    .add_local_python_source("deploy", ignore=[])
 )
 
 # Deliberately minimal until the lip-sync benchmark chooses the engine.
