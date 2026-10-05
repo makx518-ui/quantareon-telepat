@@ -66,6 +66,7 @@ async def provider_smoke() -> dict[str, object]:
         report["astro_engine"] = {
             "ok": False,
             "error": type(exc).__name__,
+            "detail": str(exc)[:500],
         }
 
     summary = None
