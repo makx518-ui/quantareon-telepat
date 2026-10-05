@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import modal
 
-from deploy.runtime import app, cpu_image
+from deploy.runtime import app, cpu_image, provider_secrets
 
 
-@app.function(image=cpu_image)
+@app.function(
+    image=cpu_image,
+    secrets=provider_secrets,
+    min_containers=0,
+)
 @modal.asgi_app()
 def web():
     from telepat.api.main import app as fastapi_app
