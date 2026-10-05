@@ -35,19 +35,19 @@ class ClaudeConversationProvider(ConversationProvider):
     def configured(self) -> bool:
         return bool(
             os.getenv("ANTHROPIC_API_KEY")
-            and (settings.conversation_model or settings.claude_model)
+            and (settings.model_for("claude", settings.claude_model))
         )
 
     async def generate(self, context: ContextPacket) -> str:
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise RuntimeError("ANTHROPIC_API_KEY is not configured")
-        if not (settings.conversation_model or settings.claude_model):
+        if not (settings.model_for("claude", settings.claude_model)):
             raise RuntimeError(
                 "TELEPAT_CLAUDE_MODEL or TELEPAT_CONVERSATION_MODEL "
                 "is not configured"
             )
 
-        model = settings.conversation_model or settings.claude_model
+        model = settings.model_for("claude", settings.claude_model)
         payload = {
             "model": model,
             "max_tokens": 1200,
