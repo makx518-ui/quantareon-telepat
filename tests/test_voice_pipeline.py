@@ -3,6 +3,7 @@ import json
 
 from telepat.voice.deepgram import DeepgramStreamingSTT, normalize_deepgram_language
 from telepat.voice.microsoft_tts import microsoft_tts
+from telepat.voice.session import VoiceSession
 from telepat.voice.tts_router import TTSRouter
 from telepat.voice.yandex_tts import yandex_tts
 
@@ -90,3 +91,42 @@ def test_ru_tts_falls_back_to_microsoft(monkeypatch) -> None:
 
     assert audio == b"mp3-audio"
     assert provider == "microsoft-andrew"
+
+
+class _FakeVoiceWebSocket:
+    def __init__(self) -> None:
+        self.messages: list[dict] = []
+
+    async def send_json(self, payload: dict) -> None:
+        self.messages.append(payload)
+
+
+def test_barge_in_stops_browser_playback_after_response_task_finished() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session._audio_playback_active = True
+
+    asyncio.run(session._on_speech_start())
+
+    assert session._audio_playback_active is False
+    assert websocket.messages == [{"type": "barge_in"}]
+
+
+def test_playback_end_control_clears_server_flag() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session._audio_playback_active = True
+
+    asyncio.run(session._handle_control('{"type":"playback_end"}'))
+
+    assert session._audio_playback_active is False
