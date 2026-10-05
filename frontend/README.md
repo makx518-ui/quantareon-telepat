@@ -127,3 +127,64 @@ QUANTAREON resampling algorithm and keeps mobile automatic gain control enabled.
 The first integration receives one MP3 payload per TELEPAT answer. Later the
 same WebSocket event surface switches the final step to the GPU avatar media
 without changing the conversation/orchestration APIs.
+
+
+## Recommended integration: runtime facade
+
+For `quantareon-site`, load the four small browser modules in this order:
+
+```html
+<script src="/telepat-session.js"></script>
+<script src="/telepat-voice.js"></script>
+<script src="/telepat-avatar.js"></script>
+<script src="/telepat-runtime.js"></script>
+```
+
+Then create one runtime object:
+
+```js
+const telepat = TelepatRuntime.create({
+  apiUrl: "https://makx518--quantareon-telepat-web.modal.run",
+  language: "ru",
+  avatar: {
+    video: "#telepat-avatar",
+    clips: {
+      idle: "/media/telepat-idle.mp4",
+      listening: "/media/telepat-listening.mp4",
+      thinking: "/media/telepat-thinking.mp4",
+      nod: "/media/telepat-nod.mp4",
+      hand_chin: "/media/telepat-hand-chin.mp4",
+      light_gesture: "/media/telepat-light-gesture.mp4",
+      lean_forward: "/media/telepat-lean-forward.mp4",
+      soft_smile: "/media/telepat-soft-smile.mp4"
+    }
+  }
+});
+```
+
+While the greeting video is already playing, bootstrap memory/Astro context:
+
+```js
+const sessionPromise = telepat.bootstrap({
+  birth: knownBirthData || null
+});
+```
+
+Start voice only from a user gesture:
+
+```js
+startButton.addEventListener("click", async () => {
+  await sessionPromise;
+  await telepat.startVoice();
+});
+```
+
+If the upstream voice WebSocket disconnects, the voice client releases the
+microphone. The site may offer a reconnect button:
+
+```js
+reconnectButton.addEventListener("click", () => telepat.reconnectVoice());
+```
+
+The runtime keeps TELEPAT `user_id` / `session_id` synchronized across the
+session, voice and avatar layers. The site remains presentation-only.
