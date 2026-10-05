@@ -3,6 +3,39 @@
 The production site stays in `quantareon-site`. This folder contains only the
 small client modules needed to connect that page to the new TELEPAT backend.
 
+## Session bootstrap
+
+Load `telepat-session.js` before starting live voice. It creates or restores the
+TELEPAT user/session identity while the greeting video can already be playing.
+
+```html
+<script>
+  window.TELEPAT_API_URL = "https://YOUR-MODAL-ENDPOINT";
+</script>
+<script src="/telepat-session.js"></script>
+```
+
+```js
+const session = await TelepatSession.bootstrap({ language: "ru" });
+
+// When birth data is already known, prepare Astrofractal context in parallel
+// with the greeting video. This is calculated once and cached in the session.
+await TelepatSession.prepareAstro({
+  year: 1980,
+  month: 1,
+  day: 1,
+  hour: 12,
+  minute: 0,
+  latitude: 55.75,
+  longitude: 37.62,
+  timezone: "Europe/Moscow"
+}, { session });
+```
+
+The site should not delay the greeting video while memory/Astrofractal context
+is being prepared. Listen for `telepat:session-ready` and
+`telepat:astro-ready` if the UI needs status indicators.
+
 ## Voice client
 
 Load:
