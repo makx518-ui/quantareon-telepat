@@ -1,0 +1,84 @@
+name: TELEPAT Modal Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/modal-deploy-trigger"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telepat-modal-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy TELEPAT API
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      TELEPAT_ATTACH_PROVIDER_SECRET: "0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Modal CLI
+        run: |
+          python -m pip install --upgrade pip
+          pip install "modal>=1.6,<2"
+
+      - name: Deploy TELEPAT
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+
+          MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
+            python -m modal deploy deploy/modal_app.py 2>&1 | tee modal-deploy.log
+
+          ENDPOINT="$(grep -Eo 'https://[A-Za-z0-9._-]+\.modal\.run' modal-deploy.log | head -n1 || true)"
+          if [ -n "$ENDPOINT" ]; then
+            echo "TELEPAT_ENDPOINT=$ENDPOINT" >> "$GITHUB_ENV"
+            echo "Endpoint discovered."
+          else
+            echo "::warning::Modal deploy succeeded but endpoint URL was not parsed from CLI output."
+          fi
+
+      - name: Health smoke
+        if: env.TELEPAT_ENDPOINT != ''
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+
+          base = os.environ["TELEPAT_ENDPOINT"].rstrip("/")
+          last = None
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(base + "/health", timeout=20) as r:
+                      data = json.loads(r.read().decode("utf-8"))
+                  if data.get("ok") is True:
+                      print(json.dumps(data, ensure_ascii=False))
+                      raise SystemExit(0)
+                  last = data
+              except Exception as exc:
+                  last = repr(exc)
+              time.sleep(5)
+
+          raise SystemExit(f"Health check failed: {last}")
+          PY
