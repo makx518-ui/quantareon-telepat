@@ -181,9 +181,17 @@ def test_ru_tts_falls_back_to_microsoft(monkeypatch) -> None:
 class _FakeVoiceWebSocket:
     def __init__(self) -> None:
         self.messages: list[dict] = []
+        self.closed: tuple[int, str] | None = None
 
     async def send_json(self, payload: dict) -> None:
         self.messages.append(payload)
+
+    async def close(
+        self,
+        code: int = 1000,
+        reason: str = "",
+    ) -> None:
+        self.closed = (code, reason)
 
 
 def test_barge_in_stops_browser_playback_after_response_task_finished() -> None:
@@ -215,3 +223,53 @@ def test_playback_end_control_clears_server_flag() -> None:
     asyncio.run(session._handle_control('{"type":"playback_end"}'))
 
     assert session._audio_playback_active is False
+
+
+
+class _BrokenDeepgramSocket:
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        raise RuntimeError("upstream disconnected")
+
+
+def test_unexpected_deepgram_disconnect_calls_callback() -> None:
+    events: list[str] = []
+
+    stt = DeepgramStreamingSTT(
+        language="ru",
+        on_disconnect=lambda: events.append("disconnected"),
+    )
+    stt._ws = _BrokenDeepgramSocket()
+    stt._connected = True
+    stt._closing = False
+
+    asyncio.run(stt._receive_loop())
+
+    assert events == ["disconnected"]
+    assert stt._connected is False
+
+
+def test_voice_session_closes_browser_when_stt_disconnects() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+
+    asyncio.run(session._on_stt_disconnect())
+
+    assert websocket.messages == [
+        {
+            "type": "error",
+            "stage": "stt",
+            "message": "Deepgram disconnected",
+        }
+    ]
+    assert websocket.closed == (
+        1011,
+        "upstream stt disconnected",
+    )
