@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .models import ContextPacket, Intent, SessionState
+from .plan import OrchestrationPlan
 
 
 def classify_intent(message: str, *, has_astro: bool) -> Intent:
@@ -30,38 +31,60 @@ def classify_intent(message: str, *, has_astro: bool) -> Intent:
     return "unknown"
 
 
-def build_psychology_context(intent: Intent) -> dict[str, str]:
+def build_psychology_context(
+    intent: Intent,
+    *,
+    level: str,
+) -> dict[str, str]:
+    if level == "none":
+        return {}
+
     if intent == "personal_reflection":
         return {
             "stance": "calm, attentive, non-judgmental",
-            "method": "reflect the concern, clarify gently, avoid overclaiming",
+            "method": (
+                "reflect the concern, separate facts from interpretation, "
+                "clarify gently, avoid diagnosis and overclaiming"
+            ),
         }
+
     if intent in {"astropsychology", "follow_up_astro"}:
         return {
             "stance": "grounded astropsychological interpretation",
-            "method": "connect symbolic patterns with lived experience; do not present astrology as certainty",
+            "method": (
+                "connect symbolic patterns with lived experience, present "
+                "possibilities rather than certainty, ask useful reflective questions"
+            ),
         }
+
     return {
         "stance": "warm, concise, attentive",
-        "method": "answer directly and keep continuity with the session",
+        "method": "answer directly and preserve continuity with the session",
     }
 
 
-def build_context_packet(session: SessionState, message: str) -> ContextPacket:
-    intent = classify_intent(message, has_astro=session.astro_summary is not None)
+def build_context_packet(
+    session: SessionState,
+    message: str,
+    plan: OrchestrationPlan,
+) -> ContextPacket:
     return ContextPacket(
         session_id=session.session_id,
         user_id=session.user_id,
         language=session.language,
         current_message=message,
-        intent=intent,
+        intent=plan.intent,
         conversation_history=session.history[-12:],
-        user_memory=session.user_memory,
-        astro_summary=session.astro_summary,
-        psychology=build_psychology_context(intent),
+        user_memory=session.user_memory if plan.use_memory else {},
+        astro_summary=session.astro_summary if plan.use_astro else None,
+        psychology=build_psychology_context(
+            plan.intent,
+            level=plan.psychology_level,
+        ),
         response_style={
             "persona": "TELEPAT astropsychologist",
             "tone": "calm, intelligent, empathic",
             "verbosity": "concise",
+            "mode": plan.response_mode,
         },
     )
