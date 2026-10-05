@@ -47,6 +47,91 @@ def test_deepgram_emits_interim_and_final_transcripts() -> None:
     ]
 
 
+
+
+def test_deepgram_waits_for_complete_utterance_across_final_segments() -> None:
+    events: list[tuple[str, str]] = []
+
+    stt = DeepgramStreamingSTT(
+        language="ru",
+        on_interim=lambda text: events.append(("interim", text)),
+        on_transcript=lambda text: events.append(("final", text)),
+    )
+
+    first_final_segment = {
+        "type": "Results",
+        "is_final": True,
+        "speech_final": False,
+        "channel": {
+            "alternatives": [
+                {"transcript": "Это длинная", "confidence": 0.95}
+            ]
+        },
+    }
+    interim_next_segment = {
+        "type": "Results",
+        "is_final": False,
+        "speech_final": False,
+        "channel": {
+            "alternatives": [
+                {"transcript": "фраза пользователя", "confidence": 0.80}
+            ]
+        },
+    }
+    last_final_segment = {
+        "type": "Results",
+        "is_final": True,
+        "speech_final": True,
+        "channel": {
+            "alternatives": [
+                {"transcript": "фраза пользователя", "confidence": 0.97}
+            ]
+        },
+    }
+
+    asyncio.run(stt._handle_message(json.dumps(first_final_segment)))
+    assert events == []
+
+    asyncio.run(stt._handle_message(json.dumps(interim_next_segment)))
+    assert events == [
+        ("interim", "Это длинная фраза пользователя"),
+    ]
+
+    asyncio.run(stt._handle_message(json.dumps(last_final_segment)))
+    assert events[-1] == (
+        "final",
+        "Это длинная фраза пользователя",
+    )
+    assert [kind for kind, _ in events].count("final") == 1
+
+
+def test_deepgram_utterance_end_flushes_accumulated_final_segment() -> None:
+    final: list[str] = []
+
+    stt = DeepgramStreamingSTT(
+        language="ru",
+        on_transcript=final.append,
+    )
+
+    segment = {
+        "type": "Results",
+        "is_final": True,
+        "speech_final": False,
+        "channel": {
+            "alternatives": [
+                {"transcript": "Готовая реплика", "confidence": 0.91}
+            ]
+        },
+    }
+
+    asyncio.run(stt._handle_message(json.dumps(segment)))
+    assert final == []
+
+    asyncio.run(
+        stt._handle_message(json.dumps({"type": "UtteranceEnd"}))
+    )
+    assert final == ["Готовая реплика"]
+
 def test_deepgram_ru_uses_nova3_streaming_options() -> None:
     stt = DeepgramStreamingSTT(language="ru")
     url = stt._url()
