@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantareon-telepat"
+version = "0.3.0"
+description = "QUANTAREON TELEPAT — live AI astropsychologist"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+include = ["telepat*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
