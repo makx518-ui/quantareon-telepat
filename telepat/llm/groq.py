@@ -23,7 +23,7 @@ class GroqConversationProvider(ConversationProvider):
         if not self.configured:
             raise RuntimeError("GROQ_API_KEY is not configured")
 
-        model = settings.conversation_model or settings.groq_model
+        model = settings.model_for("groq", settings.groq_model)
         payload = {
             "model": model,
             "messages": build_chat_messages(context),
