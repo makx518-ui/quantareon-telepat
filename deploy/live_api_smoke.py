@@ -63,6 +63,14 @@ def main() -> None:
     assert providers
     assert all(isinstance(value, bool) for value in providers.values())
 
+    status, readiness = request_json(
+        "GET",
+        base + "/health/readiness",
+    )
+    assert status == 200, (status, readiness)
+    assert readiness["core_ready"] is True
+    assert readiness["astro_engine_ready"] is True
+
     status, bootstrap = request_json(
         "POST",
         base + "/session/bootstrap",
@@ -111,6 +119,13 @@ def main() -> None:
             {
                 "health": health,
                 "providers": providers,
+                "readiness": {
+                    "core_ready": readiness["core_ready"],
+                    "conversation_ready": readiness["conversation_ready"],
+                    "astro_interpreter_ready": readiness["astro_interpreter_ready"],
+                    "live_voice_ready": readiness["live_voice_ready"],
+                    "full_telepat_ready": readiness["full_telepat_ready"],
+                },
                 "bootstrap": {
                     "memory_ready": bootstrap["memory_ready"],
                     "astro_ready": bootstrap["astro_ready"],
