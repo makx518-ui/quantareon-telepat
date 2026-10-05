@@ -12,6 +12,7 @@ Browser sends:
 - optional JSON text control:
   - `{"type":"finalize"}`
   - `{"type":"ping"}`
+  - `{"type":"playback_end"}` after browser MP3 playback finishes or fails
 
 Server events:
 
@@ -55,10 +56,12 @@ PCM -> Deepgram -> Orchestrator -> LLM -> TTS
 Barge-in behavior:
 
 1. Deepgram emits `SpeechStarted`.
-2. The server cancels the current response task.
-3. The browser receives `barge_in`.
-4. Browser audio playback stops immediately.
-5. TELEPAT returns to the listening state.
+2. The server cancels an active response task if generation/TTS is still running.
+3. The server also remembers whether delivered audio is still playing in the browser.
+4. The browser receives `barge_in` even when generation already finished but MP3 playback is still active.
+5. Browser audio playback stops immediately.
+6. TELEPAT returns to the listening state.
+7. Normal playback completion sends `playback_end` so the server clears the playback flag.
 
 The browser must persist the returned TELEPAT `user_id` locally and pass it on
 future visits. This is a TELEPAT-generated random identity, not browser
