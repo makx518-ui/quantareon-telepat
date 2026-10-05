@@ -6,11 +6,11 @@ from telepat.config.prompt_loader import load_prompt
 from telepat.core.models import ContextPacket
 
 
-def build_context_payload(context: ContextPacket) -> str:
-    history = [
-        {"role": turn.role, "content": turn.content}
-        for turn in context.conversation_history[-10:]
-    ]
+def build_context_payload(
+    context: ContextPacket,
+    *,
+    include_history: bool = True,
+) -> str:
     payload = {
         "language": context.language,
         "intent": context.intent,
@@ -18,9 +18,15 @@ def build_context_payload(context: ContextPacket) -> str:
         "response_style": context.response_style,
         "user_memory": context.user_memory,
         "astrofractal_summary": context.astro_summary,
-        "recent_history": history,
         "current_message": context.current_message,
     }
+
+    if include_history:
+        payload["recent_history"] = [
+            {"role": turn.role, "content": turn.content}
+            for turn in context.conversation_history[-10:]
+        ]
+
     return (
         "INTERNAL CONTEXT PACKET — use it, do not quote its structure:\n"
         + json.dumps(payload, ensure_ascii=False, default=str)
@@ -37,7 +43,15 @@ def build_chat_messages(context: ContextPacket) -> list[dict[str, str]]:
         role = "assistant" if turn.role == "assistant" else "user"
         messages.append({"role": role, "content": turn.content})
 
+    # Chat-completions providers already receive previous turns as messages,
+    # so the internal packet must not duplicate the same history again.
     messages.append(
-        {"role": "user", "content": build_context_payload(context)}
+        {
+            "role": "user",
+            "content": build_context_payload(
+                context,
+                include_history=False,
+            ),
+        }
     )
     return messages
