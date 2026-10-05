@@ -42,6 +42,7 @@ class VoiceSession:
         self._transcripts: asyncio.Queue[str] = asyncio.Queue(maxsize=20)
         self._processor_task: asyncio.Task | None = None
         self._response_task: asyncio.Task | None = None
+        self._audio_playback_active = False
         self._closed = False
 
         self.stt = DeepgramStreamingSTT(
@@ -142,6 +143,8 @@ class VoiceSession:
             await self.stt.finalize()
         elif kind == "ping":
             await self.websocket.send_json({"type": "pong"})
+        elif kind == "playback_end":
+            self._audio_playback_active = False
 
     async def _on_interim(self, transcript: str) -> None:
         try:
@@ -164,9 +167,16 @@ class VoiceSession:
         self._transcripts.put_nowait(transcript)
 
     async def _on_speech_start(self) -> None:
-        """Barge-in: new human speech cancels the current TELEPAT response."""
-        if self._response_task and not self._response_task.done():
+        """Barge-in cancels generation and any browser-side playback."""
+        response_active = (
+            self._response_task is not None
+            and not self._response_task.done()
+        )
+        if response_active:
             self._response_task.cancel()
+
+        if response_active or self._audio_playback_active:
+            self._audio_playback_active = False
             try:
                 await self.websocket.send_json({"type": "barge_in"})
             except Exception:
@@ -239,6 +249,7 @@ class VoiceSession:
                 )
                 return
 
+            self._audio_playback_active = True
             await self.websocket.send_json(
                 {
                     "type": "audio_start",
@@ -253,6 +264,7 @@ class VoiceSession:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            self._audio_playback_active = False
             logger.warning(
                 "Voice response failed: %s",
                 type(exc).__name__,
