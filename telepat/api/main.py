@@ -10,7 +10,7 @@ from telepat.api.session import (
     bootstrap_session,
     prepare_session_astro,
 )
-from telepat.api.status import provider_status
+from telepat.api.status import provider_status, readiness_status
 from telepat.astro.models import AstroSummary, BirthData
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
@@ -20,7 +20,7 @@ from telepat.voice.session import VoiceSession
 
 app = FastAPI(
     title="QUANTAREON TELEPAT",
-    version="0.3.0",
+    version="0.4.0",
     description="Live AI astropsychologist integration backend.",
 )
 
@@ -51,7 +51,7 @@ async def health() -> dict[str, object]:
     return {
         "ok": True,
         "service": "quantareon-telepat",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "phase": 5,
         "features": {
             "chat": True,
@@ -66,6 +66,11 @@ async def health() -> dict[str, object]:
 @app.get("/health/providers")
 async def health_providers() -> dict[str, bool]:
     return provider_status()
+
+
+@app.get("/health/readiness")
+async def health_readiness() -> dict[str, object]:
+    return readiness_status()
 
 
 @app.post("/session/bootstrap", response_model=SessionBootstrapResponse)
