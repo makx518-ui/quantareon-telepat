@@ -43,6 +43,23 @@ jobs:
             exit 1
           fi
 
+      - name: Validate Modal credential shape
+        shell: bash
+        run: |
+          bad=0
+          if [[ ! "$MODAL_TOKEN_ID" =~ ^ak-[A-Za-z0-9_-]+$ ]]; then
+            echo "::error::MODAL_TOKEN_ID has an invalid format. It must be the complete ak-... value with no spaces or line breaks."
+            bad=1
+          fi
+          if [[ ! "$MODAL_TOKEN_SECRET" =~ ^as-[A-Za-z0-9_-]+$ ]]; then
+            echo "::error::MODAL_TOKEN_SECRET has an invalid format. It must be the complete as-... value with no spaces or line breaks."
+            bad=1
+          fi
+          if [ "$bad" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Modal credential shapes look valid."
+
       - name: Install Modal CLI
         run: |
           python -m pip install --upgrade pip
