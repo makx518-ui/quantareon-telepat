@@ -47,6 +47,7 @@ class VoiceSession:
         self.stt = DeepgramStreamingSTT(
             language=self.language,
             on_transcript=self._on_transcript,
+            on_interim=self._on_interim,
             on_speech_start=self._on_speech_start,
         )
 
@@ -142,6 +143,18 @@ class VoiceSession:
         elif kind == "ping":
             await self.websocket.send_json({"type": "pong"})
 
+    async def _on_interim(self, transcript: str) -> None:
+        try:
+            await self.websocket.send_json(
+                {
+                    "type": "transcript",
+                    "text": transcript,
+                    "final": False,
+                }
+            )
+        except Exception:
+            pass
+
     async def _on_transcript(self, transcript: str) -> None:
         if self._transcripts.full():
             try:
@@ -221,7 +234,7 @@ class VoiceSession:
                 await self.websocket.send_json(
                     {
                         "type": "audio_unavailable",
-                        "reason": "tts_not_configured",
+                        "reason": "tts_not_configured_or_failed",
                     }
                 )
                 return

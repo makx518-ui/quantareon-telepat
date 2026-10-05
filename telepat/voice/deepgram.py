@@ -27,11 +27,13 @@ class DeepgramStreamingSTT:
         *,
         language: str = "ru",
         on_transcript: TranscriptCallback | None = None,
+        on_interim: TranscriptCallback | None = None,
         on_speech_start: EventCallback | None = None,
     ) -> None:
         self.api_key = os.getenv("DEEPGRAM_API_KEY", "")
         self.language = "en" if language.lower().startswith("en") else "ru"
         self.on_transcript = on_transcript
+        self.on_interim = on_interim
         self.on_speech_start = on_speech_start
 
         self._ws = None
@@ -163,6 +165,10 @@ class DeepgramStreamingSTT:
         confidence = float(best.get("confidence") or 0)
         is_final = bool(event.get("is_final"))
         speech_final = bool(event.get("speech_final"))
+
+        if transcript and not is_final:
+            await self._call(self.on_interim, transcript)
+            return
 
         accepted = (
             transcript
