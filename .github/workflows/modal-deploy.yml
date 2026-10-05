@@ -59,8 +59,18 @@ jobs:
             echo "::warning::Modal deploy succeeded but endpoint URL was not parsed from CLI output."
           fi
 
+      - name: Modal app info
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
+            python -m modal app info quantareon-telepat --no-color
+
       - name: Health smoke
+        id: health
         if: env.TELEPAT_ENDPOINT != ''
+        continue-on-error: true
         shell: bash
         run: |
           python - <<'PY'
@@ -68,9 +78,9 @@ jobs:
 
           base = os.environ["TELEPAT_ENDPOINT"].rstrip("/")
           last = None
-          for attempt in range(12):
+          for attempt in range(4):
               try:
-                  with urllib.request.urlopen(base + "/health", timeout=20) as r:
+                  with urllib.request.urlopen(base + "/health", timeout=12) as r:
                       data = json.loads(r.read().decode("utf-8"))
                   if data.get("ok") is True:
                       print(json.dumps(data, ensure_ascii=False))
@@ -78,7 +88,20 @@ jobs:
                   last = data
               except Exception as exc:
                   last = repr(exc)
-              time.sleep(5)
+              time.sleep(4)
 
           raise SystemExit(f"Health check failed: {last}")
           PY
+
+      - name: Modal stderr diagnostics
+        if: steps.health.outcome == 'failure'
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
+            python -m modal app logs quantareon-telepat --tail 200 --source stderr --timestamps || true
+
+      - name: Enforce health result
+        if: steps.health.outcome == 'failure'
+        run: exit 1
