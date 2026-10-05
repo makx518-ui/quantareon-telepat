@@ -8,6 +8,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from telepat.core.models import ChatRequest
 from telepat.core.orchestrator import orchestrator
+from telepat.llm.router import ConversationUnavailableError
 
 from .deepgram import DeepgramStreamingSTT
 from .tts_router import tts_router
@@ -301,6 +302,18 @@ class VoiceSession:
 
         except asyncio.CancelledError:
             raise
+        except ConversationUnavailableError:
+            self._audio_playback_active = False
+            try:
+                await self.websocket.send_json(
+                    {
+                        "type": "error",
+                        "stage": "llm",
+                        "message": "conversation_provider_unavailable",
+                    }
+                )
+            except Exception:
+                pass
         except Exception as exc:
             self._audio_playback_active = False
             logger.warning(
