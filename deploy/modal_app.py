@@ -10,6 +10,7 @@ image = (
         "pydantic>=2.8,<3",
         "httpx>=0.27,<1",
         "uvicorn[standard]>=0.30,<1",
+        "websockets>=12,<16",
         "kerykeion>=5.12,<6",
         "pyswisseph==2.10.3.2",
     )
