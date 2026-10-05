@@ -29,6 +29,20 @@ app.add_middleware(
 )
 
 
+class SessionBootstrapRequest(BaseModel):
+    user_id: str | None = None
+    session_id: str | None = None
+    language: str = "ru"
+
+
+class SessionBootstrapResponse(BaseModel):
+    user_id: str
+    session_id: str
+    language: str
+    has_astro_summary: bool
+    has_user_memory: bool
+
+
 class AstroSessionRequest(BaseModel):
     birth: BirthData
     user_id: str | None = None
@@ -62,6 +76,25 @@ async def health() -> dict[str, object]:
 @app.get("/health/providers")
 async def health_providers() -> dict[str, bool]:
     return provider_status()
+
+
+@app.post("/session/bootstrap", response_model=SessionBootstrapResponse)
+async def bootstrap_session(
+    request: SessionBootstrapRequest,
+) -> SessionBootstrapResponse:
+    """Create or resume the lightweight TELEPAT session before voice starts."""
+    session = session_manager.get_or_create(
+        session_id=request.session_id,
+        user_id=request.user_id,
+        language=request.language,
+    )
+    return SessionBootstrapResponse(
+        user_id=session.user_id,
+        session_id=session.session_id,
+        language=session.language,
+        has_astro_summary=session.astro_summary is not None,
+        has_user_memory=bool(session.user_memory),
+    )
 
 
 @app.post("/chat", response_model=ChatResponse)
