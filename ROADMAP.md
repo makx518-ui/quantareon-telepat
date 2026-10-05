@@ -4,112 +4,133 @@
 - [x] Create integration repository
 - [x] Define product boundary
 - [x] Define architecture and orchestration flow
-- [ ] Add package skeleton and configuration
+- [x] Add package skeleton and configuration
+- [x] Add CI
 
 ## Phase 1 — Minimal backend
 Goal: text request -> TELEPAT text response.
 
-- FastAPI app
-- /health
-- request/response models
-- Session Manager
-- Orchestrator
-- Context Builder
-- LLM interface + router
-- mock/fallback conversation provider
-- unit tests
+- [x] FastAPI app
+- [x] `/health`
+- [x] request/response models
+- [x] Session Manager
+- [x] Orchestrator
+- [x] Context Builder
+- [x] LLM interface + replaceable router
+- [x] mock/fallback provider
+- [x] unit tests
+- [x] Modal CPU application definition
 
-Exit condition:
-- Modal can run the app
-- /health returns OK
-- /chat accepts session/user/message and returns normalized response
+Runtime gate:
+- [ ] real provider smoke in Modal
+- [ ] deployed `/chat` smoke request
 
 ## Phase 2 — Astrofractal
-Goal: TELEPAT can reason from the new Astrofractal method.
+Goal: TELEPAT can reason from the current Astrofractal method.
 
-- copy/adapt only required current Astrofractal modules from quantareon-engine
-- add missing unique Oracle components where useful
-- AstroAdapter
-- normalized Astrofractal result
-- GeminiAstroInterpreter
-- session-level AstroSummary cache
-- tests using fixed birth data
+- [x] required Astrofractal modules copied/adapted from donor engine
+- [x] normalized calculation model
+- [x] Gemini Astro interpreter
+- [x] structured JSON output contract
+- [x] session-level AstroSummary cache
+- [x] fixed-data engine tests
+- [x] cache lifecycle tests
 
-Exit condition:
-- one deterministic Astrofractal calculation
-- one cached Gemini interpretation
-- subsequent chat turns reuse summary without unnecessary recalculation
+Runtime gate:
+- [ ] real Gemini Astro call in Modal
 
 ## Phase 3 — Psychology
 Goal: responses sound like a competent calm astropsychologist.
 
-- psychological state context
-- empathy rules
-- communication style
-- integrator / response policy
-- prompt regression tests
+- [x] state-understanding context
+- [x] psychology context
+- [x] empathy/communication layer
+- [x] integrator policy
+- [x] tests
+
+Further tuning will be based on real conversation transcripts rather than
+adding separate expensive LLM calls per layer.
 
 ## Phase 4 — Memory
-Goal: returning users are recognized by their TELEPAT identity and prior conversation summaries.
+Goal: returning users are recognized by TELEPAT identity and relevant prior
+context.
 
-- MemoryAdapter protocol
-- remote memory client
-- Session memory
-- emergency/fallback memory
-- fact extraction policy
-- summary policy
+- [x] MemoryAdapter boundary
+- [x] existing remote Memory API client
+- [x] stable browser `user_id`
+- [x] session memory
+- [x] compact relevant context
+- [x] asynchronous exchange persistence
+
+Pending after the standalone Memory service is attached:
+- [ ] validate remote recall/store contract against production server
+- [ ] tune fact/summary policy from real sessions
 
 ## Phase 5 — Voice
-Goal: full duplex spoken conversation without avatar.
+Goal: full duplex spoken conversation without GPU avatar rendering.
 
-- Deepgram streaming STT
-- barge-in
-- Yandex SpeechKit Ermil
-- Microsoft multilingual fallback
-- WebSocket/session audio protocol
-- browser voice client
+- [x] Deepgram Nova-3 streaming STT
+- [x] interim/final transcripts
+- [x] barge-in
+- [x] Yandex SpeechKit Ermil
+- [x] Microsoft Andrew multilingual fallback
+- [x] WebSocket/session audio protocol
+- [x] browser PCM16 client
+- [x] TTS fallback tests
 
-Exit condition:
-- user speaks
-- TELEPAT understands
-- TELEPAT responds with audio
-- interruption works
+Runtime gate:
+- [ ] real Deepgram connection in Modal
+- [ ] real TTS generation in Modal
+- [ ] browser microphone -> STT -> LLM -> TTS smoke
+- [ ] interruption test with real playback
 
 ## Phase 6 — Avatar GPU
-Goal: TELEPAT speaks through the final avatar.
+Goal: TELEPAT speaks through the final fixed character.
 
-- choose lip-sync/avatar engine after benchmark
-- Modal GPU image
-- base avatar assets
-- behavior state library
-- state selector
-- audio -> lip sync
-- latency measurements
+- [x] Modal L4 GPU boundary
+- [x] scale-to-zero configuration
+- [x] persistent asset volume boundary
+- [x] behavior state library
+- [x] deterministic state/director logic
+- [x] browser Avatar Controller and `setLiveMedia()` boundary
+- [ ] benchmark candidate lip-sync engines
+- [ ] select engine after benchmark
+- [ ] install selected engine in GPU image
+- [ ] audio -> lip-sync render
+- [ ] latency/VRAM measurements
 
 ## Phase 7 — Site integration
-Goal: production user experience.
+Goal: production TELEPAT experience in `quantareon-site`.
 
-- connect quantareon-site TELEPAT page
-- greeting video
-- silent idle state
-- microphone state
-- thinking state
-- speaking state
-- reconnect/error states
-- mobile checks
+- [ ] connect existing TELEPAT page to Modal API
+- [ ] run bootstrap during greeting video
+- [ ] map final idle/listening/thinking/gesture clips
+- [ ] connect GPU speaking media
+- [ ] reconnect/error UX
+- [ ] mobile checks
 
 ## Phase 8 — Production hardening
-- secrets only in Modal/GitHub secret stores
-- rate limits
-- observability
-- privacy/data retention controls
-- cost counters per session
-- provider fallbacks
-- load tests
+- [x] secrets excluded from repository
+- [x] provider fallbacks at architecture level
+- [ ] rate limits
+- [ ] observability
+- [ ] privacy/data retention controls
+- [ ] cost counters per session
+- [ ] load tests
+
+## Immediate execution order
+
+1. Run private Modal provider smoke (`modal run deploy/smoke.py`).
+2. Fix any real Gemini/LLM/TTS/Deepgram provider incompatibility.
+3. Run deployed `/chat` and browser `/ws/voice` end-to-end.
+4. Benchmark avatar/lip-sync candidates on L4.
+5. Fix the winning GPU engine behind the existing AvatarAdapter boundary.
+6. Integrate the finished runtime into `quantareon-site`.
 
 ## Non-goals for first release
 
 Do not import:
+
 - store/payment code
 - dream oracle features
 - runes/numerology
