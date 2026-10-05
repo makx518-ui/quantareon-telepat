@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+from telepat.llm.router import ConversationUnavailableError, llm_router
 from telepat.voice.deepgram import DeepgramStreamingSTT, normalize_deepgram_language
 from telepat.voice.microsoft_tts import microsoft_tts
 from telepat.voice.session import VoiceSession
@@ -303,3 +304,28 @@ async def test_voice_session_close_awaits_background_tasks() -> None:
     assert session._processor_task is None
     assert session._audio_playback_active is False
     assert websocket.closed is not None
+
+
+
+@pytest.mark.asyncio
+async def test_voice_reports_llm_provider_outage(monkeypatch) -> None:
+    async def unavailable(*args, **kwargs):
+        raise ConversationUnavailableError("provider outage")
+
+    monkeypatch.setattr(llm_router, "generate", unavailable)
+
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="voice-outage-user",
+        session_id="voice-outage-session",
+        language="ru",
+    )
+
+    await session._respond("Проверка")
+
+    assert websocket.messages[-1] == {
+        "type": "error",
+        "stage": "llm",
+        "message": "conversation_provider_unavailable",
+    }
