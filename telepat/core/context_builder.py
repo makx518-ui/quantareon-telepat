@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from telepat.psychology.service import build_psychology_context
+
 from .models import ContextPacket, Intent, SessionState
 from .plan import OrchestrationPlan
 
@@ -31,38 +33,6 @@ def classify_intent(message: str, *, has_astro: bool) -> Intent:
     return "unknown"
 
 
-def build_psychology_context(
-    intent: Intent,
-    *,
-    level: str,
-) -> dict[str, str]:
-    if level == "none":
-        return {}
-
-    if intent == "personal_reflection":
-        return {
-            "stance": "calm, attentive, non-judgmental",
-            "method": (
-                "reflect the concern, separate facts from interpretation, "
-                "clarify gently, avoid diagnosis and overclaiming"
-            ),
-        }
-
-    if intent in {"astropsychology", "follow_up_astro"}:
-        return {
-            "stance": "grounded astropsychological interpretation",
-            "method": (
-                "connect symbolic patterns with lived experience, present "
-                "possibilities rather than certainty, ask useful reflective questions"
-            ),
-        }
-
-    return {
-        "stance": "warm, concise, attentive",
-        "method": "answer directly and preserve continuity with the session",
-    }
-
-
 def build_context_packet(
     session: SessionState,
     message: str,
@@ -78,8 +48,9 @@ def build_context_packet(
         user_memory=session.user_memory if plan.use_memory else {},
         astro_summary=session.astro_summary if plan.use_astro else None,
         psychology=build_psychology_context(
-            plan.intent,
-            level=plan.psychology_level,
+            message=message,
+            language=session.language,
+            plan=plan,
         ),
         response_style={
             "persona": "TELEPAT astropsychologist",
