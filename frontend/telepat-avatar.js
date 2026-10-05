@@ -50,8 +50,21 @@
       this.video.preload = 'auto';
 
       this._onState = (event) => {
-        const state = (event.detail && event.detail.state) || this.fallbackState;
-        this.setState(state);
+        const detail = (event && event.detail) || {};
+        const transportState = detail.state || this.fallbackState;
+
+        // During speech keep the semantic pose selected by the orchestrator
+        // until real GPU media arrives. Do not fall back to idle just because
+        // the transport state is named "speaking".
+        if (transportState === 'speaking') {
+          const semantic = detail.avatarState || this.currentState || 'thinking';
+          if (this.clips[semantic]) {
+            this.setState(semantic);
+          }
+          return;
+        }
+
+        this.setState(transportState);
       };
 
       global.addEventListener('telepat:state', this._onState);
