@@ -1,7 +1,9 @@
+import asyncio
+
 import pytest
 
 from telepat.core.models import ChatRequest
-from telepat.core.orchestrator import orchestrator
+from telepat.core.orchestrator import Orchestrator, orchestrator
 from telepat.core.plan import build_plan
 from telepat.core.session_manager import session_manager
 from telepat.llm.router import ConversationUnavailableError, llm_router
@@ -50,3 +52,25 @@ async def test_failed_llm_turn_is_not_committed_to_session(monkeypatch) -> None:
     session = session_manager.get("orchestrator-failure-session")
     assert session is not None
     assert session.history == []
+
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_drains_tracked_background_tasks() -> None:
+    local = Orchestrator()
+    completed: list[str] = []
+
+    async def work() -> None:
+        await asyncio.sleep(0)
+        completed.append("done")
+
+    task = local._spawn_background(work())
+
+    assert task in local._background_tasks
+
+    await local.drain_background()
+    await asyncio.sleep(0)
+
+    assert task.done()
+    assert completed == ["done"]
+    assert local._background_tasks == set()
