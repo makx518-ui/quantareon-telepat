@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 import json
+import os
 
 import modal
 
 
 app = modal.App("quantareon-telepat-smoke")
+
+attach_provider_secret = os.getenv(
+    "TELEPAT_ATTACH_PROVIDER_SECRET",
+    "0",
+).strip().lower() in {"1", "true", "yes", "on"}
+provider_secrets = (
+    [modal.Secret.from_name("quantareon-telepat-secrets")]
+    if attach_provider_secret
+    else []
+)
 
 smoke_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -22,7 +33,7 @@ smoke_image = (
 )
 
 
-@app.function(image=smoke_image, timeout=180)
+@app.function(image=smoke_image, timeout=180, secrets=provider_secrets)
 async def provider_smoke() -> dict[str, object]:
     """Run TELEPAT diagnostics in Modal without requiring provider secrets.
 
