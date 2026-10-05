@@ -3,11 +3,12 @@ from __future__ import annotations
 import asyncio
 import os
 
+from telepat.config.prompt_loader import load_prompt
 from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
 
 from .base import ConversationProvider
-from .prompt import build_context_payload, load_prompt
+from .prompt import build_context_payload
 
 
 class GeminiConversationProvider(ConversationProvider):
