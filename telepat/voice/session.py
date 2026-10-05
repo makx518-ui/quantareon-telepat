@@ -50,6 +50,7 @@ class VoiceSession:
             on_transcript=self._on_transcript,
             on_interim=self._on_interim,
             on_speech_start=self._on_speech_start,
+            on_disconnect=self._on_stt_disconnect,
         )
 
     async def run(self) -> None:
@@ -165,6 +166,30 @@ class VoiceSession:
             except asyncio.QueueEmpty:
                 pass
         self._transcripts.put_nowait(transcript)
+
+    async def _on_stt_disconnect(self) -> None:
+        """Fail the browser voice socket when the upstream STT stream dies."""
+        if self._closed:
+            return
+
+        try:
+            await self.websocket.send_json(
+                {
+                    "type": "error",
+                    "stage": "stt",
+                    "message": "Deepgram disconnected",
+                }
+            )
+        except Exception:
+            pass
+
+        try:
+            await self.websocket.close(
+                code=1011,
+                reason="upstream stt disconnected",
+            )
+        except Exception:
+            pass
 
     async def _on_speech_start(self) -> None:
         """Barge-in cancels generation and any browser-side playback."""
