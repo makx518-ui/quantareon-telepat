@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from collections.abc import Coroutine
+from dataclasses import dataclass, field
+from typing import Any
 
 from telepat.avatar.director import select_speaking_state
 from telepat.avatar.state_selector import select_avatar_state
@@ -22,6 +24,29 @@ class Orchestrator:
     The orchestrator plans and coordinates. It does not implement astrology,
     memory storage, TTS, STT or avatar rendering itself.
     """
+
+    _background_tasks: set[asyncio.Task[Any]] = field(
+        default_factory=set,
+        init=False,
+        repr=False,
+    )
+
+    def _spawn_background(
+        self,
+        coroutine: Coroutine[Any, Any, Any],
+    ) -> asyncio.Task[Any]:
+        task = asyncio.create_task(coroutine)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
+
+    async def drain_background(self) -> None:
+        if not self._background_tasks:
+            return
+        await asyncio.gather(
+            *tuple(self._background_tasks),
+            return_exceptions=True,
+        )
 
     async def handle_chat(self, request: ChatRequest) -> ChatResponse:
         session = session_manager.get_or_create(
@@ -72,7 +97,7 @@ class Orchestrator:
 
         if memory_adapter.configured:
             # Persistence is intentionally off the critical response path.
-            asyncio.create_task(
+            self._spawn_background(
                 memory_adapter.store_exchange(
                     user_id=session.user_id,
                     message=request.message,
