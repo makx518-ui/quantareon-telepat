@@ -186,7 +186,10 @@ async def provider_smoke() -> dict[str, object]:
         failures.append("chat_core")
 
     if (
-        providers.get("gemini") or providers.get("groq")
+        providers.get("gemini")
+        or providers.get("groq")
+        or providers.get("openai")
+        or providers.get("claude")
     ) and not report.get("chat", {}).get("real_provider"):
         failures.append("conversation_provider")
 
