@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -9,11 +9,12 @@ from telepat.astro.service import astro_service
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
 from telepat.core.session_manager import session_manager
+from telepat.voice.session import VoiceSession
 
 
 app = FastAPI(
     title="QUANTAREON TELEPAT",
-    version="0.2.0",
+    version="0.3.0",
     description="Live AI astropsychologist integration backend.",
 )
 
@@ -44,8 +45,15 @@ async def health() -> dict[str, object]:
     return {
         "ok": True,
         "service": "quantareon-telepat",
-        "version": "0.2.0",
-        "phase": 2,
+        "version": "0.3.0",
+        "phase": 5,
+        "features": {
+            "chat": True,
+            "astrofractal": True,
+            "memory_adapter": True,
+            "voice_websocket": True,
+            "avatar_gpu": False,
+        },
     }
 
 
@@ -88,3 +96,15 @@ async def prepare_astro_session(
         session_id=session.session_id,
         summary=summary,
     )
+
+
+@app.websocket("/ws/voice")
+async def voice_socket(websocket: WebSocket) -> None:
+    params = websocket.query_params
+    voice_session = VoiceSession(
+        websocket,
+        user_id=params.get("user_id") or None,
+        session_id=params.get("session_id") or None,
+        language=params.get("language") or "ru",
+    )
+    await voice_session.run()
