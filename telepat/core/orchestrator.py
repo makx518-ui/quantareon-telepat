@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 
 from telepat.avatar.director import select_speaking_state
+from telepat.avatar.state_selector import select_avatar_state
 from telepat.llm.router import llm_router
 from telepat.memory.compact import compact_memory
 from telepat.memory.remote import remote_memory
