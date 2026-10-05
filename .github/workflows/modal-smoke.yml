@@ -2,6 +2,10 @@ name: TELEPAT Modal Smoke
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/modal-smoke-trigger"
 
 permissions:
   contents: read
