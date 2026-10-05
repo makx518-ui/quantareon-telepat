@@ -13,6 +13,8 @@ def provider_status() -> dict[str, bool]:
     return {
         "gemini": bool(os.getenv("GEMINI_API_KEY")),
         "groq": bool(os.getenv("GROQ_API_KEY")),
+        "openai": bool(os.getenv("OPENAI_API_KEY")),
+        "claude": bool(os.getenv("ANTHROPIC_API_KEY")),
         "astro_gemini": gemini_astro_interpreter.configured,
         "deepgram": bool(os.getenv("DEEPGRAM_API_KEY")),
         "yandex_ermil": yandex_tts.configured,
@@ -31,7 +33,10 @@ def readiness_status() -> dict[str, object]:
     providers = provider_status()
 
     conversation_ready = bool(
-        providers["gemini"] or providers["groq"]
+        providers["gemini"]
+        or providers["groq"]
+        or providers["openai"]
+        or providers["claude"]
     )
     voice_output_ready = bool(
         providers["yandex_ermil"]
