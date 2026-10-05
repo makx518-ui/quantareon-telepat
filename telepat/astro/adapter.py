@@ -1,19 +1,22 @@
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Protocol, runtime_checkable
+
+from .models import AstroCalculation, AstroSummary, BirthData
 
 
+@runtime_checkable
 class AstroAdapter(Protocol):
-    async def calculate(self, *, user_data: dict[str, Any]) -> dict[str, Any]: ...
+    """Stable boundary for deterministic Astrofractal + interpretation."""
 
-    async def summarize(self, *, astro_data: dict[str, Any], language: str) -> dict[str, Any]: ...
+    async def calculate(
+        self,
+        birth: BirthData,
+    ) -> AstroCalculation: ...
 
-
-class NullAstroAdapter:
-    """Phase-1 placeholder. Real implementation comes from Engine + Oracle."""
-
-    async def calculate(self, *, user_data: dict[str, Any]) -> dict[str, Any]:
-        return {}
-
-    async def summarize(self, *, astro_data: dict[str, Any], language: str) -> dict[str, Any]:
-        return {}
+    async def calculate_and_interpret(
+        self,
+        birth: BirthData,
+        *,
+        language: str = "ru",
+    ) -> tuple[AstroCalculation, AstroSummary]: ...
