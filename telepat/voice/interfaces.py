@@ -1,13 +1,32 @@
 from __future__ import annotations
 
-from typing import AsyncIterator, Protocol
+from typing import Protocol, runtime_checkable
 
 
-class STTProvider(Protocol):
-    async def transcribe(self, audio: bytes, *, language: str | None = None) -> str: ...
+@runtime_checkable
+class StreamingSTTProvider(Protocol):
+    @property
+    def configured(self) -> bool: ...
+
+    async def connect(self) -> None: ...
+
+    async def send_audio(self, audio: bytes) -> None: ...
+
+    async def finalize(self) -> None: ...
+
+    async def close(self) -> None: ...
 
 
+@runtime_checkable
 class TTSProvider(Protocol):
-    async def synthesize(self, text: str, *, language: str) -> bytes: ...
+    name: str
 
-    async def stream(self, text: str, *, language: str) -> AsyncIterator[bytes]: ...
+    @property
+    def configured(self) -> bool: ...
+
+    async def synthesize(
+        self,
+        text: str,
+        *,
+        language: str,
+    ) -> bytes: ...
