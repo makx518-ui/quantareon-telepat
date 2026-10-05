@@ -58,13 +58,15 @@ jobs:
       - name: Verify Modal authentication
         shell: bash
         run: |
-          export MODAL_TOKEN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | tr -d '[:space:]')"
-          export MODAL_TOKEN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | tr -d '[:space:]')"
-          python -m modal token info
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+          MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" python -m modal token info
 
       - name: Run TELEPAT provider smoke
         shell: bash
         run: |
-          export MODAL_TOKEN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | tr -d '[:space:]')"
-          export MODAL_TOKEN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | tr -d '[:space:]')"
-          python -m modal run deploy/smoke.py
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" python -m modal run deploy/smoke.py
