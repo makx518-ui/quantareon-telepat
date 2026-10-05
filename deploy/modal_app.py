@@ -2,27 +2,16 @@ from __future__ import annotations
 
 import modal
 
-
-image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .uv_pip_install(
-        "fastapi>=0.115,<1",
-        "pydantic>=2.8,<3",
-        "httpx>=0.27,<1",
-        "uvicorn[standard]>=0.30,<1",
-        "websockets>=12,<16",
-        "kerykeion>=5.12,<6",
-        "pyswisseph==2.10.3.2",
-    )
-    .add_local_python_source("telepat")
-)
-
-app = modal.App("quantareon-telepat", image=image)
+from deploy.runtime import app, cpu_image
 
 
-@app.function()
+@app.function(image=cpu_image)
 @modal.asgi_app()
 def web():
     from telepat.api.main import app as fastapi_app
 
     return fastapi_app
+
+
+# Import registers the GPU class on the same Modal App.
+from deploy.avatar_gpu import AvatarGPUWorker  # noqa: E402,F401
