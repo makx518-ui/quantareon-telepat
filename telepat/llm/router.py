@@ -6,9 +6,11 @@ from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
 
 from .base import ConversationProvider
+from .claude import ClaudeConversationProvider
 from .gemini import GeminiConversationProvider
 from .groq import GroqConversationProvider
 from .mock import MockConversationProvider
+from .openai import OpenAIConversationProvider
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,8 @@ class LLMRouter:
         providers: list[ConversationProvider] = [
             GroqConversationProvider(),
             GeminiConversationProvider(),
+            OpenAIConversationProvider(),
+            ClaudeConversationProvider(),
             MockConversationProvider(),
         ]
         self._providers = {provider.name: provider for provider in providers}
