@@ -91,6 +91,7 @@ class DeepgramStreamingSTT:
         self._ws = None
         self._receive_task: asyncio.Task | None = None
         self._keepalive_task: asyncio.Task | None = None
+        self._final_segments: list[str] = []
         self._connected = False
         self._closing = False
 
@@ -202,7 +203,13 @@ class DeepgramStreamingSTT:
         event_type = event.get("type")
 
         if event_type == "SpeechStarted":
+            # A fresh speech event must not inherit an unfinished stale buffer.
+            self._final_segments.clear()
             await self._call(self.on_speech_start)
+            return
+
+        if event_type == "UtteranceEnd":
+            await self._flush_final_segments()
             return
 
         if event_type != "Results":
@@ -219,17 +226,26 @@ class DeepgramStreamingSTT:
         speech_final = bool(event.get("speech_final"))
 
         if transcript and not is_final:
-            await self._call(self.on_interim, transcript)
+            preview = " ".join(
+                [*self._final_segments, transcript]
+            ).strip()
+            await self._call(self.on_interim, preview)
             return
 
-        accepted = (
-            transcript
-            and (
-                (is_final and confidence >= 0.70)
-                or (speech_final and confidence >= 0.50)
-            )
-        )
-        if accepted:
+        if transcript and is_final and confidence >= 0.50:
+            self._final_segments.append(transcript)
+
+        if speech_final:
+            await self._flush_final_segments()
+
+    async def _flush_final_segments(self) -> None:
+        if not self._final_segments:
+            return
+
+        transcript = " ".join(self._final_segments).strip()
+        self._final_segments.clear()
+
+        if transcript:
             await self._call(self.on_transcript, transcript)
 
     @staticmethod
