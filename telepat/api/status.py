@@ -9,7 +9,7 @@ from telepat.voice.yandex_tts import yandex_tts
 
 
 def provider_status() -> dict[str, bool]:
-    """Return connection readiness without exposing any credential values."""
+    """Return provider configuration readiness without exposing credentials."""
     return {
         "gemini": bool(os.getenv("GEMINI_API_KEY")),
         "groq": bool(os.getenv("GROQ_API_KEY")),
@@ -18,4 +18,47 @@ def provider_status() -> dict[str, bool]:
         "yandex_ermil": yandex_tts.configured,
         "microsoft_andrew": microsoft_tts.configured,
         "memory": memory_adapter.configured,
+    }
+
+
+def readiness_status() -> dict[str, object]:
+    """Expose capability readiness separately from basic process health.
+
+    TELEPAT's deterministic core can be healthy before external providers are
+    attached. Consumers can use this endpoint to decide whether to enable live
+    voice, real LLM conversation, Astro interpretation and persistent memory.
+    """
+    providers = provider_status()
+
+    conversation_ready = bool(
+        providers["gemini"] or providers["groq"]
+    )
+    voice_output_ready = bool(
+        providers["yandex_ermil"]
+        or providers["microsoft_andrew"]
+    )
+    voice_input_ready = bool(providers["deepgram"])
+    astro_interpreter_ready = bool(providers["astro_gemini"])
+    memory_ready = bool(providers["memory"])
+
+    return {
+        "core_ready": True,
+        "conversation_ready": conversation_ready,
+        "astro_engine_ready": True,
+        "astro_interpreter_ready": astro_interpreter_ready,
+        "voice_input_ready": voice_input_ready,
+        "voice_output_ready": voice_output_ready,
+        "memory_ready": memory_ready,
+        "live_voice_ready": (
+            conversation_ready
+            and voice_input_ready
+            and voice_output_ready
+        ),
+        "full_telepat_ready": (
+            conversation_ready
+            and astro_interpreter_ready
+            and voice_input_ready
+            and voice_output_ready
+        ),
+        "providers": providers,
     }
