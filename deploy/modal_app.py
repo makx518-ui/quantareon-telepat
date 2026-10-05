@@ -11,6 +11,7 @@ from deploy.runtime import app, cpu_image, provider_secrets
     image=cpu_image,
     secrets=provider_secrets,
     min_containers=0,
+    max_containers=1,
 )
 @modal.asgi_app()
 def web():
