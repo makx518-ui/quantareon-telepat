@@ -26,3 +26,23 @@ Development run:
 
 The CPU web function and future GPU avatar worker belong to the same Modal App:
 `quantareon-telepat`.
+
+## Provider smoke test
+
+Before connecting the production TELEPAT page, run the private Modal smoke
+function:
+
+    modal run deploy/smoke.py
+
+The smoke run executes inside Modal with `quantareon-telepat-secrets` and
+checks:
+
+- deterministic Astrofractal + real Gemini Astro interpretation;
+- a real orchestrated conversation turn;
+- Russian TTS routing (Ermil, with Andrew fallback);
+- a real Deepgram WebSocket connection.
+
+It returns only provider names, success flags and payload sizes. It does not
+print or return secret values.
+
+This is intentionally a CLI smoke test, not a public FastAPI debug endpoint.
