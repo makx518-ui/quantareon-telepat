@@ -22,6 +22,8 @@ Supported environment names include:
 
 - `GEMINI_API_KEY`
 - `GROQ_API_KEY`
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
 - `DEEPGRAM_API_KEY`
 - `YANDEX_SPEECHKIT_API_KEY`
 - `YANDEX_IAM_TOKEN`
@@ -30,6 +32,8 @@ Supported environment names include:
 - `AZURE_SPEECH_REGION`
 - `MEMORY_API_URL`
 - `MEMORY_API_KEY`
+- `TELEPAT_OPENAI_MODEL`
+- `TELEPAT_CLAUDE_MODEL`
 
 The provider secret is optional at deployment time. Both Modal workflows detect
 whether it exists:
