@@ -3,3 +3,4 @@ trigger: validate-credentials
 trigger: whitespace-normalized
 trigger: extract-token-text
 trigger: standalone-smoke
+trigger: astro-detail
