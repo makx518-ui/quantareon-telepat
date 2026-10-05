@@ -178,6 +178,38 @@ async def provider_smoke() -> dict[str, object]:
         finally:
             await stt.close()
 
+    failures: list[str] = []
+
+    if not report.get("astro_engine", {}).get("ok"):
+        failures.append("astro_engine")
+    if not report.get("chat", {}).get("ok"):
+        failures.append("chat_core")
+
+    if (
+        providers.get("gemini") or providers.get("groq")
+    ) and not report.get("chat", {}).get("real_provider"):
+        failures.append("conversation_provider")
+
+    if providers.get("astro_gemini") and not report.get(
+        "astro_interpreter",
+        {},
+    ).get("ok"):
+        failures.append("astro_interpreter")
+
+    if (
+        providers.get("yandex_ermil")
+        or providers.get("microsoft_andrew")
+    ) and not report.get("tts", {}).get("ok"):
+        failures.append("tts")
+
+    if providers.get("deepgram") and not report.get(
+        "deepgram",
+        {},
+    ).get("ok"):
+        failures.append("deepgram")
+
+    report["overall_ok"] = not failures
+    report["required_failures"] = failures
     return report
 
 
@@ -185,3 +217,8 @@ async def provider_smoke() -> dict[str, object]:
 async def main() -> None:
     result = await provider_smoke.remote.aio()
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    if not result.get("overall_ok"):
+        raise SystemExit(
+            "TELEPAT smoke failed: "
+            + ", ".join(result.get("required_failures") or [])
+        )
