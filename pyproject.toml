@@ -9,7 +9,7 @@ description = "QUANTAREON TELEPAT — live AI astropsychologist"
 requires-python = ">=3.12"
 
 [tool.setuptools.packages.find]
-include = ["telepat*"]
+include = ["telepat*", "deploy*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
