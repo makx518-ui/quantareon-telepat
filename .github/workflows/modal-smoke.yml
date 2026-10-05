@@ -1,0 +1,51 @@
+name: TELEPAT Modal Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telepat-modal-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Real provider smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Require Modal GitHub secrets
+        shell: bash
+        run: |
+          if [ -z "$MODAL_TOKEN_ID" ] || [ -z "$MODAL_TOKEN_SECRET" ]; then
+            echo "::error::Missing repository secrets MODAL_TOKEN_ID and/or MODAL_TOKEN_SECRET."
+            echo "::error::Add them in Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - name: Install Modal CLI
+        run: |
+          python -m pip install --upgrade pip
+          pip install "modal>=1.6,<2"
+
+      - name: Verify Modal authentication
+        run: python -m modal token info
+
+      - name: Run TELEPAT provider smoke
+        run: python -m modal run deploy/smoke.py
