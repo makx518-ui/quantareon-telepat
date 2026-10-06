@@ -2,3 +2,4 @@ SkyReels V3 TalkingAvatar 19B install bootstrap
 Pinned upstream commit: 28c771e8456341be6a213e3d1133ed1fd19bf75d
 GPU target: L40S 48 GB
 retry: 2026-10-06T09:30:00.470Z
+retry official A2V-19B model id
