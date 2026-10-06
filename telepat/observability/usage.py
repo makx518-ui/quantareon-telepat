@@ -6,6 +6,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from threading import RLock
+from collections.abc import Callable
 from typing import Any
 
 from telepat.llm.base import ProviderUsage
@@ -39,6 +40,8 @@ class UsageRegistry:
         *,
         max_sessions: int | None = None,
         rates: dict[str, dict[str, float]] | None = None,
+        ttl_seconds: float | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self.max_sessions = int(
             max_sessions
@@ -46,6 +49,15 @@ class UsageRegistry:
             else os.getenv("TELEPAT_USAGE_MAX_SESSIONS", "5000")
         )
         self.max_sessions = max(100, self.max_sessions)
+        self.ttl_seconds = float(
+            ttl_seconds
+            if ttl_seconds is not None
+            else os.getenv(
+                "TELEPAT_USAGE_TTL_SECONDS",
+                os.getenv("TELEPAT_SESSION_TTL_SECONDS", "21600"),
+            )
+        )
+        self._clock = clock or time.monotonic
         self._rates = rates if rates is not None else self._load_rates()
         self._sessions: dict[str, _SessionUsage] = {}
         self._lock = RLock()
@@ -83,6 +95,19 @@ class UsageRegistry:
                     parsed[key] = value
             result[str(model)] = parsed
         return result
+
+    def _purge_stale_locked(self) -> None:
+        if self.ttl_seconds <= 0:
+            return
+
+        now = self._clock()
+        stale = [
+            session_id
+            for session_id, item in self._sessions.items()
+            if now - item.updated_at > self.ttl_seconds
+        ]
+        for session_id in stale:
+            self._sessions.pop(session_id, None)
 
     def _make_room_locked(self) -> None:
         if len(self._sessions) < self.max_sessions:
@@ -143,10 +168,11 @@ class UsageRegistry:
             return
 
         with self._lock:
+            self._purge_stale_locked()
             item = self._sessions.get(session_id)
             if item is None:
                 self._make_room_locked()
-                item = _SessionUsage()
+                item = _SessionUsage(updated_at=self._clock())
                 self._sessions[session_id] = item
 
             item.calls += 1
@@ -159,7 +185,7 @@ class UsageRegistry:
             item.thought_tokens += max(0, usage.thought_tokens)
             item.providers[provider] += 1
             item.models[model] += 1
-            item.updated_at = time.monotonic()
+            item.updated_at = self._clock()
 
             cost = self._cost(model=model, usage=usage)
             if cost is None:
@@ -170,6 +196,7 @@ class UsageRegistry:
 
     def snapshot(self, session_id: str) -> dict[str, Any] | None:
         with self._lock:
+            self._purge_stale_locked()
             item = self._sessions.get(session_id)
             if item is None:
                 return None
