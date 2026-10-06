@@ -65,3 +65,39 @@ def test_live_api_post_does_not_retry_by_default(monkeypatch) -> None:
         raise AssertionError("expected URLError")
 
     assert calls["count"] == 1
+
+
+
+def test_health_build_convergence_requires_expected_sha() -> None:
+    assert (
+        live_api_smoke.health_matches_expected_build(
+            {
+                "ok": True,
+                "build_sha": "old",
+            },
+            "new",
+        )
+        is False
+    )
+
+    assert (
+        live_api_smoke.health_matches_expected_build(
+            {
+                "ok": True,
+                "build_sha": "new",
+            },
+            "new",
+        )
+        is True
+    )
+
+    assert (
+        live_api_smoke.health_matches_expected_build(
+            {
+                "ok": True,
+                "build_sha": "anything",
+            },
+            "",
+        )
+        is True
+    )
