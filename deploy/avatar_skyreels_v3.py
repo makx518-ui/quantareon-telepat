@@ -66,6 +66,7 @@ skyreels_image = (
             "s=s.replace('from .attention import flash_attention', "
             "'from .attention import attention'); "
             "s=s.replace('flash_attention(', 'attention('); "
+            "s=s.replace('version=2', 'fa_version=2'); "
             "clip.write_text(s); "
             "tr=Path('/opt/SkyReels-V3/skyreels_v3/modules/transformer_a2v.py'); "
             "t=tr.read_text(); "
