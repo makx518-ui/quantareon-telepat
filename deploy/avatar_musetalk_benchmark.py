@@ -52,6 +52,10 @@ musetalk_image = (
             "sed -i '/export HF_ENDPOINT=/d' download_weights.sh && "
             "bash download_weights.sh"
         ),
+        (
+            "pip install --force-reinstall --no-deps "
+            "'huggingface_hub==0.30.2'"
+        ),
     )
     .add_local_python_source("telepat", ignore=[])
     .add_local_python_source("deploy", ignore=[])
