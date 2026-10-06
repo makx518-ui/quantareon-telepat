@@ -17,10 +17,13 @@ def test_live_voice_smoke_retries_transient_open_timeout(monkeypatch) -> None:
         }
 
     monkeypatch.setattr(live_voice_smoke, "_check_once", fake_check)
+    async def fake_sleep(_delay: float) -> None:
+        return None
+
     monkeypatch.setattr(
         live_voice_smoke.asyncio,
         "sleep",
-        lambda _delay: asyncio.sleep(0),
+        fake_sleep,
     )
     monkeypatch.setenv(
         "TELEPAT_ENDPOINT",
