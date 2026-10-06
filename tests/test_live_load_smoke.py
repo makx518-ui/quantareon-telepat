@@ -1,3 +1,4 @@
+import http.client
 import urllib.error
 
 from deploy import live_load_smoke
@@ -108,3 +109,30 @@ def test_real_provider_load_rejects_mock(monkeypatch) -> None:
         assert "unexpectedly used mock" in str(exc)
     else:
         raise AssertionError("expected RuntimeError")
+
+
+
+def test_load_smoke_retries_remote_disconnect(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    def fake_request(method, url, payload=None, *, timeout=30):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise http.client.RemoteDisconnected("closed")
+        return 200, {
+            "reply": "ok",
+            "provider": "mock",
+            "session_id": "load-session-9",
+        }
+
+    monkeypatch.setattr(live_load_smoke, "request_json", fake_request)
+    monkeypatch.setenv("TELEPAT_CORE_LOAD_TRANSPORT_RETRIES", "2")
+    monkeypatch.setattr(live_load_smoke.time, "sleep", lambda _: None)
+
+    result = live_load_smoke.one_chat(
+        "https://example.invalid",
+        9,
+    )
+
+    assert calls["count"] == 2
+    assert result["session_id"] == "load-session-9"
