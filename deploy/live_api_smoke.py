@@ -146,6 +146,15 @@ def main() -> None:
     assert isinstance(production["ready"], bool)
     assert isinstance(production["blockers"], list)
 
+    status, launch_summary = request_json(
+        "GET",
+        base + "/health/launch-summary",
+    )
+    assert status == 200, (status, launch_summary)
+    assert isinstance(launch_summary["runtime_ready"], bool)
+    assert isinstance(launch_summary["providers_ready"], bool)
+    assert isinstance(launch_summary["site_integration_ready"], bool)
+
     smoke_suffix = (
         os.getenv("TELEPAT_BUILD_SHA", "local")
         .strip()
@@ -298,6 +307,14 @@ def main() -> None:
                 "production": {
                     "ready": production["ready"],
                     "blockers": production["blockers"],
+                },
+                "launch_summary": {
+                    "runtime_ready": launch_summary["runtime_ready"],
+                    "providers_ready": launch_summary["providers_ready"],
+                    "avatar_ready": launch_summary["avatar_ready"],
+                    "site_integration_ready": launch_summary[
+                        "site_integration_ready"
+                    ],
                 },
                 "readiness": {
                     "core_ready": readiness["core_ready"],
