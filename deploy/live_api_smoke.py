@@ -4,6 +4,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -189,6 +190,31 @@ def main() -> None:
     else:
         assert chat["provider"] == "mock", chat
 
+    usage_query = urllib.parse.urlencode(
+        {
+            "session_id": bootstrap["session_id"],
+            "user_id": bootstrap["user_id"],
+        }
+    )
+    status, session_usage_response = request_json(
+        "GET",
+        base + "/session/usage?" + usage_query,
+    )
+
+    usage_observed = status == 200
+    session_usage = (
+        session_usage_response.get("usage") or {}
+        if usage_observed
+        else {}
+    )
+    if usage_observed:
+        assert session_usage["calls"] >= 1, session_usage
+        assert chat["provider"] in session_usage["providers"], session_usage
+    else:
+        # Like in-process latency metrics, usage counters can cold-reset if
+        # Modal replaces the scale-to-zero process between requests.
+        assert status == 404, (status, session_usage_response)
+
     status, metrics = request_json(
         "GET",
         base + "/health/metrics",
@@ -229,6 +255,13 @@ def main() -> None:
                     "memory_ready": bootstrap["memory_ready"],
                     "astro_ready": bootstrap["astro_ready"],
                     "astro_status": bootstrap["astro_status"],
+                },
+                "usage": {
+                    "observed": usage_observed,
+                    "calls": session_usage.get("calls"),
+                    "total_tokens": session_usage.get("total_tokens"),
+                    "priced_cost_usd": session_usage.get("priced_cost_usd"),
+                    "fully_priced": session_usage.get("fully_priced"),
                 },
                 "metrics": {
                     "observed": metrics_observed,
