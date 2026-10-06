@@ -64,3 +64,29 @@ Human review remains separate and scores:
 
 Do not select an engine solely from speed. The winning adapter must satisfy both
 the technical benchmark and the visual review.
+
+
+## Benchmark asset layout
+
+The L4 benchmark uses a fixed Modal Volume layout:
+
+```
+/telepat-assets/
+  benchmark/
+    source.mp4
+    ermil-benchmark.mp3
+```
+
+Environment overrides are available:
+
+- `TELEPAT_AVATAR_ASSET_ROOT`
+- `TELEPAT_AVATAR_SOURCE`
+- `TELEPAT_AVATAR_AUDIO_SAMPLE`
+
+`AvatarGPUWorker.probe()` reports whether both benchmark assets exist and are
+non-empty before an engine benchmark starts.
+
+The existing donor `quantareon-site/telepat-video-ru.mp4` can be used as a
+temporary source during infrastructure checks, but it is **not** automatically
+declared the final production lip-sync source. The final fixed TELEPAT source
+must be chosen explicitly before visual scoring.
