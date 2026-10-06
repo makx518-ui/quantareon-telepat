@@ -176,8 +176,18 @@ def main() -> None:
     assert status == 200, (status, metrics)
     assert metrics["privacy"] == "no_user_content"
     stages = metrics["stages"]
-    assert stages["llm"]["count"] >= 1, stages
-    assert stages["turn_total"]["count"] >= 1, stages
+
+    # Metrics are intentionally in-process and bounded. Modal may replace a
+    # scale-to-zero container between the chat request and this read, so an
+    # empty registry is a valid cold-reset condition rather than a deploy
+    # failure.
+    llm_metrics = stages.get("llm") or {}
+    turn_metrics = stages.get("turn_total") or {}
+    metrics_observed = bool(llm_metrics and turn_metrics)
+
+    if metrics_observed:
+        assert llm_metrics["count"] >= 1, stages
+        assert turn_metrics["count"] >= 1, stages
 
     print(
         json.dumps(
@@ -201,8 +211,10 @@ def main() -> None:
                     "astro_status": bootstrap["astro_status"],
                 },
                 "metrics": {
-                    "llm_p50_ms": stages["llm"]["p50_ms"],
-                    "turn_p50_ms": stages["turn_total"]["p50_ms"],
+                    "observed": metrics_observed,
+                    "cold_reset": not metrics_observed,
+                    "llm_p50_ms": llm_metrics.get("p50_ms"),
+                    "turn_p50_ms": turn_metrics.get("p50_ms"),
                 },
                 "chat": {
                     "provider": chat["provider"],
