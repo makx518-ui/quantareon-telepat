@@ -2,3 +2,4 @@ SkyReels V3 5-second sample trigger
 retry auth normalization
 retry after PyAV redeploy
 retry after CLIP SDPA fallback
+retry after full SDPA patch
