@@ -16,6 +16,8 @@ app = modal.App("quantareon-telepat")
 
 build_sha = os.getenv("TELEPAT_BUILD_SHA", "local").strip() or "local"
 
+GOOGLE_GENAI_SPEC = "google-genai>=2.0,<3"
+
 assets_volume = modal.Volume.from_name(
     "quantareon-telepat-assets",
     create_if_missing=True,
@@ -29,7 +31,7 @@ cpu_image = (
         "pydantic>=2.8,<3",
         "httpx>=0.27,<1",
         "uvicorn[standard]>=0.30,<1",
-        "google-genai>=1.0,<2",
+        GOOGLE_GENAI_SPEC,
         "websockets>=12,<16",
         "kerykeion>=5.12,<6",
         "pyswisseph==2.10.3.2",
