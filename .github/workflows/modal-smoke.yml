@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: telepat-modal-smoke
+  group: telepat-modal-smoke-v2
   cancel-in-progress: true
 
 jobs:
