@@ -19,8 +19,6 @@ class _IdempotentEntry:
 
 
 class SessionManager:
-    kind = "in_process"
-
     """Bounded in-process session store for the current TELEPAT MVP.
 
     The interface stays storage-agnostic so a shared store can replace this
@@ -32,6 +30,8 @@ class SessionManager:
     - conversation history is bounded;
     - a session_id cannot be reused with a different user_id.
     """
+
+    kind = "in_process"
 
     def __init__(
         self,
