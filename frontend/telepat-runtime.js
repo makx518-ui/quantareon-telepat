@@ -84,16 +84,42 @@
       this.birth = birth || null;
     }
 
-    async readiness() {
-      const response = await fetch(this.apiUrl + '/health/readiness', {
+    async _getJson(path) {
+      const response = await fetch(this.apiUrl + path, {
         headers: { 'Accept': 'application/json' }
       });
       if (!response.ok) {
         throw new Error(
-          'TELEPAT readiness failed: ' + response.status
+          'TELEPAT request failed: ' + response.status + ' ' + path
         );
       }
       return response.json();
+    }
+
+    async readiness() {
+      return this._getJson('/health/readiness');
+    }
+
+    async productionReadiness() {
+      return this._getJson('/health/production-readiness');
+    }
+
+    async providerContract() {
+      return this._getJson('/health/provider-contract');
+    }
+
+    async usage() {
+      if (!this.session) {
+        throw new Error(
+          'TELEPAT session must be bootstrapped before reading usage'
+        );
+      }
+
+      const params = new URLSearchParams({
+        session_id: this.session.session_id,
+        user_id: this.session.user_id
+      });
+      return this._getJson('/session/usage?' + params.toString());
     }
 
     async bootstrap(options) {
