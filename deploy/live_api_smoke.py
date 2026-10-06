@@ -71,6 +71,14 @@ def main() -> None:
     assert readiness["core_ready"] is True
     assert readiness["astro_engine_ready"] is True
 
+    status, contract = request_json(
+        "GET",
+        base + "/health/provider-contract",
+    )
+    assert status == 200, (status, contract)
+    assert "providers" in contract
+    assert "capabilities" in contract
+
     birth = {
         "year": 2000,
         "month": 1,
