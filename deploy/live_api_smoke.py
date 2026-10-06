@@ -60,28 +60,52 @@ def request_json(
     raise last_error
 
 
+def health_matches_expected_build(
+    health: dict,
+    expected_build_sha: str,
+) -> bool:
+    if health.get("ok") is not True:
+        return False
+    if not expected_build_sha:
+        return True
+    return health.get("build_sha") == expected_build_sha
+
+
 def main() -> None:
     base = os.environ["TELEPAT_ENDPOINT"].rstrip("/")
+    expected_build_sha = os.getenv("TELEPAT_BUILD_SHA", "").strip()
 
     last = None
-    for _ in range(6):
+    for _ in range(12):
         try:
-            status, health = request_json("GET", base + "/health", timeout=15)
-            if status == 200 and health.get("ok") is True:
+            status, health = request_json(
+                "GET",
+                base + "/health",
+                timeout=15,
+                transport_retries=1,
+            )
+            if (
+                status == 200
+                and health_matches_expected_build(
+                    health,
+                    expected_build_sha,
+                )
+            ):
                 break
-            last = (status, health)
+
+            if status == 200 and health.get("ok") is True:
+                last = {
+                    "reason": "build_not_converged",
+                    "observed_build_sha": health.get("build_sha"),
+                    "expected_build_sha": expected_build_sha,
+                }
+            else:
+                last = (status, health)
         except Exception as exc:
             last = repr(exc)
         time.sleep(4)
     else:
-        raise SystemExit(f"Health check failed: {last}")
-
-    expected_build_sha = os.getenv("TELEPAT_BUILD_SHA", "").strip()
-    if expected_build_sha:
-        assert health.get("build_sha") == expected_build_sha, (
-            health.get("build_sha"),
-            expected_build_sha,
-        )
+        raise SystemExit(f"Health/build convergence failed: {last}")
 
     status, providers = request_json(
         "GET",
