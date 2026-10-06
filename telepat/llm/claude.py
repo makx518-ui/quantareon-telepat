@@ -27,6 +27,21 @@ def _extract_claude_text(data: dict[str, Any]) -> str:
     return "\n".join(parts).strip()
 
 
+def _normalize_claude_usage(usage: dict[str, Any]) -> ProviderUsage:
+    return ProviderUsage(
+        # Anthropic reports uncached input, cache reads and cache creation
+        # as separate counters.
+        input_tokens=int(usage.get("input_tokens") or 0),
+        output_tokens=int(usage.get("output_tokens") or 0),
+        cached_input_tokens=int(
+            usage.get("cache_read_input_tokens") or 0
+        ),
+        cache_write_input_tokens=int(
+            usage.get("cache_creation_input_tokens") or 0
+        ),
+    )
+
+
 class ClaudeConversationProvider(ConversationProvider):
     name = "claude"
     endpoint = "https://api.anthropic.com/v1/messages"
@@ -83,16 +98,5 @@ class ClaudeConversationProvider(ConversationProvider):
         return ConversationResult(
             text=text,
             model=model,
-            usage=ProviderUsage(
-                # Anthropic reports uncached input, cache reads and cache
-                # creation as separate counters, so no subtraction is needed.
-                input_tokens=int(usage.get("input_tokens") or 0),
-                output_tokens=int(usage.get("output_tokens") or 0),
-                cached_input_tokens=int(
-                    usage.get("cache_read_input_tokens") or 0
-                ),
-                cache_write_input_tokens=int(
-                    usage.get("cache_creation_input_tokens") or 0
-                ),
-            ),
+            usage=_normalize_claude_usage(usage),
         )
