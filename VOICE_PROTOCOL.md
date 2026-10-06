@@ -89,3 +89,30 @@ and Dutch. The Andrew locale map explicitly covers the same set.
 
 A fixed socket language such as `ru` or `en-US` still disables automatic
 selection and keeps that language for the whole voice session.
+
+
+## Session lifetime limits
+
+The voice server enforces two configurable cost/safety limits:
+
+- `TELEPAT_VOICE_IDLE_TIMEOUT_SECONDS` — closes a silent/idle browser voice
+  connection after no incoming audio/control frames for the configured period.
+- `TELEPAT_VOICE_MAX_SESSION_SECONDS` — hard ceiling for one voice connection.
+
+Defaults are 120 seconds idle and 1800 seconds total.
+
+Before closing normally, the server sends:
+
+```json
+{"type":"session_end","reason":"idle_timeout"}
+```
+
+or:
+
+```json
+{"type":"session_end","reason":"max_duration"}
+```
+
+The browser releases microphone/audio resources, emits
+`telepat:session-end`, moves to `stopped`, and may reconnect through the
+runtime facade.
