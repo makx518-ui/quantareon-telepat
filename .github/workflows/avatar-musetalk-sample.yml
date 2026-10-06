@@ -1,0 +1,57 @@
+name: TELEPAT MuseTalk Visual Sample
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/musetalk-sample-trigger"
+
+permissions:
+  contents: read
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal CLI
+        run: pip install "modal>=1.6,<2"
+
+      - name: Normalize Modal auth
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+          echo "::add-mask::$CLEAN_ID"
+          echo "::add-mask::$CLEAN_SECRET"
+          echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
+          echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
+
+      - name: Deploy current MuseTalk candidate
+        run: python -m modal deploy deploy/avatar_musetalk_benchmark.py
+
+      - name: Render visual sample
+        run: timeout 900s python -m deploy.run_avatar_sample musetalk musetalk-sample.mp4
+
+      - name: Publish visual sample
+        uses: actions/upload-artifact@v4
+        with:
+          name: telepat-musetalk-visual-sample
+          path: musetalk-sample.mp4
+          if-no-files-found: error
+          retention-days: 14
