@@ -216,3 +216,25 @@ def test_config_preflight_rejects_invalid_reply_limit(
 
     assert report["ok"] is False
     assert "telepat_max_reply_chars_invalid" in report["errors"]
+
+
+
+def test_config_preflight_rejects_invalid_avatar_timeout(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        preflight_module,
+        "settings",
+        _Settings(),
+    )
+    monkeypatch.setenv("TELEPAT_MEMORY_RECALL_ENABLED", "0")
+    monkeypatch.setenv("TELEPAT_MEMORY_STORE_ENABLED", "0")
+    monkeypatch.setenv("TELEPAT_AVATAR_RENDER_TIMEOUT_SECONDS", "0")
+
+    report = configuration_preflight()
+
+    assert report["ok"] is False
+    assert (
+        "telepat_avatar_render_timeout_seconds_invalid"
+        in report["errors"]
+    )
