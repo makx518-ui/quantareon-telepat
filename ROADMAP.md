@@ -105,7 +105,7 @@ Runtime gates:
 - [x] real TTS generation
 - [x] automated real speech -> STT -> LLM -> TTS WebSocket E2E turn
 - [ ] human browser microphone -> STT -> LLM -> TTS
-- [ ] real interruption test during playback
+- [x] real interruption test during playback
 
 ## Phase 6 — Avatar GPU
 Goal: TELEPAT speaks through the final fixed character.
