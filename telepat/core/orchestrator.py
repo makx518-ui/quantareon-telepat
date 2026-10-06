@@ -85,6 +85,14 @@ class Orchestrator:
         session,
         request: ChatRequest,
     ) -> ChatResponse:
+        if request.request_id:
+            cached = session_manager.get_idempotent_response(
+                session.session_id,
+                request.request_id,
+            )
+            if cached is not None:
+                return cached
+
         started = perf_counter()
 
         intent = classify_intent(
@@ -159,14 +167,24 @@ class Orchestrator:
             provider=provider_name,
         )
 
-        return ChatResponse(
+        response = ChatResponse(
             reply=reply,
+            request_id=request.request_id,
             user_id=session.user_id,
             session_id=session.session_id,
             intent=plan.intent,
             avatar_state=speaking_state,
             provider=provider_name,
         )
+
+        if request.request_id:
+            session_manager.set_idempotent_response(
+                session.session_id,
+                request.request_id,
+                response,
+            )
+
+        return response
 
     @staticmethod
     def _memory_level(plan: OrchestrationPlan) -> str:
