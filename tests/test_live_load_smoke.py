@@ -1,0 +1,46 @@
+import urllib.error
+
+from deploy import live_load_smoke
+
+
+def test_load_smoke_retries_transient_transport_errors(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    def fake_request(method, url, payload=None, *, timeout=30):
+        calls["count"] += 1
+        if calls["count"] < 3:
+            raise urllib.error.URLError("tls timeout")
+        return 200, {
+            "reply": "ok",
+            "provider": "mock",
+            "session_id": "load-session-1",
+        }
+
+    monkeypatch.setattr(live_load_smoke, "request_json", fake_request)
+    monkeypatch.setenv("TELEPAT_CORE_LOAD_TRANSPORT_RETRIES", "3")
+    monkeypatch.setattr(live_load_smoke.time, "sleep", lambda _: None)
+
+    result = live_load_smoke.one_chat(
+        "https://example.invalid",
+        1,
+    )
+
+    assert calls["count"] == 3
+    assert result["session_id"] == "load-session-1"
+    assert result["latency_ms"] >= 0
+
+
+def test_load_smoke_raises_after_retry_budget(monkeypatch) -> None:
+    def always_fail(method, url, payload=None, *, timeout=30):
+        raise urllib.error.URLError("tls timeout")
+
+    monkeypatch.setattr(live_load_smoke, "request_json", always_fail)
+    monkeypatch.setenv("TELEPAT_CORE_LOAD_TRANSPORT_RETRIES", "2")
+    monkeypatch.setattr(live_load_smoke.time, "sleep", lambda _: None)
+
+    try:
+        live_load_smoke.one_chat("https://example.invalid", 1)
+    except RuntimeError as exc:
+        assert "transport failed after 2 attempts" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
