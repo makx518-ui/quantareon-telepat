@@ -175,3 +175,25 @@ def test_config_preflight_requires_engine_when_gpu_enabled(
     report = configuration_preflight()
 
     assert "avatar_gpu_enabled_without_engine" in report["errors"]
+
+
+
+def test_config_preflight_rejects_disabled_voice_pacing_guard(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        preflight_module,
+        "settings",
+        _Settings(),
+    )
+    monkeypatch.setenv("TELEPAT_MEMORY_RECALL_ENABLED", "0")
+    monkeypatch.setenv("TELEPAT_MEMORY_STORE_ENABLED", "0")
+    monkeypatch.setenv("TELEPAT_VOICE_MAX_REALTIME_FACTOR", "0")
+
+    report = configuration_preflight()
+
+    assert report["ok"] is False
+    assert (
+        "telepat_voice_max_realtime_factor_invalid"
+        in report["errors"]
+    )
