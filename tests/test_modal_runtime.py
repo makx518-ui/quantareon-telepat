@@ -9,4 +9,6 @@ def test_modal_deployment_modules_import() -> None:
     assert runtime.gpu_base_image is not None
     assert avatar_gpu.AvatarGPUWorker is not None
     assert modal_app.web is not None
-    assert smoke.provider_smoke is not None
+    assert modal_app.provider_probe is not None
+    assert smoke.app is not None
+    assert callable(smoke.main)
