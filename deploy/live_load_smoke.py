@@ -109,10 +109,33 @@ def one_chat(base: str, index: int) -> dict[str, object]:
 def main() -> None:
     base = os.environ["TELEPAT_ENDPOINT"].rstrip("/")
 
-    status, readiness = request_json(
-        "GET",
-        base + "/health/readiness",
+    readiness_retries = int(
+        os.getenv("TELEPAT_CORE_LOAD_TRANSPORT_RETRIES", "3")
     )
+    last_error: Exception | None = None
+    status = 0
+    readiness: dict = {}
+
+    for attempt in range(1, readiness_retries + 1):
+        try:
+            status, readiness = request_json(
+                "GET",
+                base + "/health/readiness",
+            )
+            last_error = None
+            break
+        except (TimeoutError, urllib.error.URLError) as exc:
+            last_error = exc
+            if attempt >= readiness_retries:
+                break
+            time.sleep(0.5 * attempt)
+
+    if last_error is not None:
+        raise SystemExit(
+            "readiness transport failed after "
+            f"{readiness_retries} attempts: "
+            f"{type(last_error).__name__}"
+        ) from last_error
     if status != 200:
         raise SystemExit(
             f"readiness failed: status={status} payload={readiness}"
