@@ -146,6 +146,7 @@ Then create one runtime object:
 const telepat = TelepatRuntime.create({
   apiUrl: "https://makx518--quantareon-telepat-web.modal.run",
   language: "ru",
+  voiceLanguage: "auto",
   avatar: {
     video: "#telepat-avatar",
     clips: {
@@ -188,3 +189,10 @@ reconnectButton.addEventListener("click", () => telepat.reconnectVoice());
 
 The runtime keeps TELEPAT `user_id` / `session_id` synchronized across the
 session, voice and avatar layers. The site remains presentation-only.
+
+
+The runtime keeps UI/Astro language and spoken-language detection separate:
+
+- `language` controls bootstrap/Astro/UI language.
+- `voiceLanguage: "auto"` is the default and lets Deepgram detect each spoken
+  utterance independently before routing LLM/TTS.
