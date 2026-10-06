@@ -154,6 +154,23 @@ Candidate providers:
 
 ---
 
+## 6.1 Response Policy
+
+The visible LLM reply passes through one deterministic Response Policy before
+it is committed to session history or sent to TTS/avatar.
+
+The policy does not make another LLM call. It:
+
+- rejects empty/unusable model output;
+- normalizes line endings and excessive blank lines;
+- removes consecutive duplicate paragraphs;
+- bounds live-dialogue response length with sentence-aware truncation;
+- maps unusable provider output into the normal controlled conversation outage
+  path rather than storing or voicing invalid content.
+
+The production length ceiling is configured by
+`TELEPAT_MAX_REPLY_CHARS`.
+
 ## 7. Psychology layers
 
 Keep the first version compact.
