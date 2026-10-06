@@ -133,3 +133,43 @@ audio flooding:
 Default browser frames are well below these limits. A violation is rejected
 before bytes are forwarded to Deepgram and ends the voice session with
 `frame_too_large`, `control_too_large` or `audio_rate_limit`.
+
+
+## Turn correlation
+
+Every final user utterance receives a monotonically increasing `turn_id`
+within one voice WebSocket connection.
+
+The same id is carried through:
+
+- final `transcript`
+- `state: thinking`
+- `reply`
+- `audio_start`
+- following binary MP3 payload (implicitly bound to that `audio_start`)
+- `audio_end`
+- turn-scoped `error` / `audio_unavailable`
+- `barge_in` for the interrupted turn
+
+Example:
+
+```json
+{"type":"reply","turn_id":4,"text":"..."}
+{"type":"audio_start","turn_id":4,"format":"mp3"}
+<binary MP3>
+{"type":"audio_end","turn_id":4}
+```
+
+Browser playback completion returns the same id:
+
+```json
+{"type":"playback_end","turn_id":4}
+```
+
+When barge-in invalidates turn 4, the browser marks all frames for turn 4 (and
+any older turn) as stale. A late reply, `audio_start`, binary payload or
+`audio_end` from that turn is ignored instead of interrupting the new turn.
+
+The server also derives a unique idempotency key from the WebSocket connection
+id plus `turn_id`, so an internal retry of the same voice turn cannot create
+a second LLM/history write.
