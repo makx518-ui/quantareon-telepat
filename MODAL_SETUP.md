@@ -35,17 +35,34 @@ Supported environment names include:
 - `TELEPAT_OPENAI_MODEL`
 - `TELEPAT_CLAUDE_MODEL`
 
-The provider secret is optional at deployment time. Both Modal workflows detect
+The provider secret is optional at deployment time. Modal workflows detect
 whether it exists:
 
 - absent -> deterministic core and fallback behavior are tested
-- present -> the same workflows attach it automatically and test real providers
+- present -> the runtime attaches it automatically and tests configured providers
+
+The repository also contains **TELEPAT Modal Provider Sync**. It merges non-empty
+GitHub Actions secrets into the named Modal Secret using Modal's dict-update
+semantics. Existing Modal keys not included in a sync are left unchanged.
+
+The sync covers provider credentials plus runtime policy such as CORS, model
+routing, voice tuning, Memory privacy switches, rate limits, session limits and
+cost-accounting configuration.
+
+Important: Modal Secret updates are visible only to containers started after the
+update. After changing provider/runtime configuration, run a TELEPAT Modal
+Deploy (or otherwise restart the runtime) before validating readiness.
 
 ## GitHub Actions
 
 ### TELEPAT CI
 
 Runs compileall and pytest on Python 3.12.
+
+### TELEPAT Modal Provider Sync
+
+Runs `deploy/sync_modal_provider_secret.py` and merge-updates
+`quantareon-telepat-secrets`. It never prints secret values.
 
 ### TELEPAT Modal Smoke
 
@@ -61,6 +78,7 @@ Deploys the FastAPI application and then runs:
 
 - `deploy/live_api_smoke.py`
 - `deploy/live_voice_smoke.py`
+- `deploy/live_load_smoke.py`
 
 The current development endpoint is:
 
