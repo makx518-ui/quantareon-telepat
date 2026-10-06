@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from time import perf_counter
 from typing import Any
 
 from telepat.config.prompt_loader import load_prompt
 from telepat.config.settings import settings
+from telepat.observability.metrics import runtime_metrics
 
 from .models import AstroCalculation, AstroSummary
 
@@ -145,9 +147,25 @@ class GeminiAstroInterpreter:
                 raise RuntimeError("Gemini Astro returned an empty response")
             return text
 
-        text = await asyncio.to_thread(_call)
-        payload = _parse_summary_payload(text)
+        started = perf_counter()
+        try:
+            text = await asyncio.to_thread(_call)
+            payload = _parse_summary_payload(text)
+        except Exception:
+            runtime_metrics.record(
+                "astro_interpret",
+                (perf_counter() - started) * 1000,
+                ok=False,
+                provider=self.name,
+            )
+            raise
 
+        runtime_metrics.record(
+            "astro_interpret",
+            (perf_counter() - started) * 1000,
+            ok=True,
+            provider=self.name,
+        )
         return AstroSummary(
             **payload,
             provider=self.name,
