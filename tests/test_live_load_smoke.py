@@ -44,3 +44,25 @@ def test_load_smoke_raises_after_retry_budget(monkeypatch) -> None:
         assert "transport failed after 2 attempts" in str(exc)
     else:
         raise AssertionError("expected RuntimeError")
+
+
+
+def test_load_smoke_retries_readiness_transport(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    def fake_request(method, url, payload=None, *, timeout=30):
+        calls["count"] += 1
+        if "/health/readiness" in url:
+            if calls["count"] < 3:
+                raise urllib.error.URLError("tls timeout")
+            return 200, {"conversation_ready": True}
+        raise AssertionError("unexpected request")
+
+    monkeypatch.setattr(live_load_smoke, "request_json", fake_request)
+    monkeypatch.setenv("TELEPAT_ENDPOINT", "https://example.invalid")
+    monkeypatch.setenv("TELEPAT_CORE_LOAD_TRANSPORT_RETRIES", "3")
+    monkeypatch.setattr(live_load_smoke.time, "sleep", lambda _: None)
+
+    live_load_smoke.main()
+
+    assert calls["count"] == 3
