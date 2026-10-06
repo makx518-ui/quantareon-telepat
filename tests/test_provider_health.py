@@ -191,3 +191,32 @@ def test_missing_cost_rates_is_warning_not_blocker(monkeypatch) -> None:
 
     assert "llm_cost_rates_unconfigured" in readiness["warnings"]
     assert "llm_cost_rates_unconfigured" not in readiness["blockers"]
+
+
+
+def test_shared_session_store_removes_single_container_warning(
+    monkeypatch,
+) -> None:
+    import telepat.api.status as status_module
+
+    class _Settings:
+        env = "production"
+        cors_origins = ("https://quantareon.example",)
+        claude_model = ""
+
+        @staticmethod
+        def model_for(provider: str, provider_default: str) -> str:
+            return provider_default
+
+    class _SharedStore:
+        kind = "shared"
+        ttl_seconds = 21600
+        max_sessions = 1000
+        max_history_turns = 60
+
+    monkeypatch.setattr(status_module, "settings", _Settings())
+    monkeypatch.setattr(status_module, "session_store", _SharedStore())
+
+    readiness = status_module.production_readiness_status()
+
+    assert "single_container_session_store" not in readiness["warnings"]
