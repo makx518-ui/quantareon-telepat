@@ -84,6 +84,7 @@ Confirmed in the live Modal environment:
 - `/health/provider-contract` lists missing configuration names without values
 - `/health/config-preflight` validates provider/runtime policy before network probes
 - `/health/production-readiness` lists remaining product blockers
+- `/health/launch-summary` provides one compact launch/integration status
 - `/health/metrics` exposes privacy-safe latency/error aggregates
 - `/session/bootstrap` creates/reuses TELEPAT identity and session
 - `/chat` completes an orchestrated turn
@@ -150,6 +151,7 @@ The next voice gate is a real provider-backed run:
 - runtime configuration preflight
 - bounded LRU chat idempotency cache
 - normalized cached-read/cache-write/thinking token accounting
+- deterministic Response Policy before history/TTS/avatar
 
 ## Modal CPU / GPU split
 
