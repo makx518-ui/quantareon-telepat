@@ -75,3 +75,40 @@ def test_chat_rate_limit_returns_429(monkeypatch) -> None:
     assert second.headers["retry-after"] == "60"
 
     rate_limiter.reset()
+
+
+
+def test_session_usage_requires_matching_user() -> None:
+    created = client.post(
+        "/chat",
+        json={
+            "message": "Привет",
+            "language": "ru",
+            "user_id": "usage-owner",
+            "session_id": "usage-session",
+        },
+    )
+    assert created.status_code == 200
+
+    ok = client.get(
+        "/session/usage",
+        params={
+            "session_id": "usage-session",
+            "user_id": "usage-owner",
+        },
+    )
+    assert ok.status_code == 200
+    usage = ok.json()["usage"]
+    assert usage["calls"] >= 1
+    assert usage["providers"]["mock"] >= 1
+    assert usage["priced_cost_usd"] == 0.0
+
+    wrong_user = client.get(
+        "/session/usage",
+        params={
+            "session_id": "usage-session",
+            "user_id": "different-user",
+        },
+    )
+    assert wrong_user.status_code == 404
+    assert wrong_user.json()["detail"] == "session_not_found"
