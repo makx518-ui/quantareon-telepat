@@ -42,4 +42,8 @@ cpu_image = (
 
 # Deliberately minimal until the lip-sync benchmark chooses the engine.
 # We allocate an L4 only when a GPU method is actually called.
-gpu_base_image = modal.Image.debian_slim(python_version="3.12")
+gpu_base_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .add_local_python_source("telepat", ignore=[])
+    .add_local_python_source("deploy", ignore=[])
+)
