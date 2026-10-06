@@ -1,0 +1,91 @@
+name: TELEPAT Memory Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/memory-deploy-trigger"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telepat-memory-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy TELEPAT persistent Memory
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install runtime tools
+        run: pip install "modal>=1.6,<2" "httpx>=0.27,<1"
+
+      - name: Normalize Modal auth
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+          echo "::add-mask::$CLEAN_ID"
+          echo "::add-mask::$CLEAN_SECRET"
+          echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
+          echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
+
+      - name: Generate and provision Memory API key
+        shell: bash
+        run: |
+          MEMORY_KEY="$(python - <<'PY'
+          import secrets
+          print(secrets.token_urlsafe(36))
+          PY
+          )"
+          test -n "$MEMORY_KEY"
+          echo "::add-mask::$MEMORY_KEY"
+          echo "MEMORY_API_KEY=$MEMORY_KEY" >> "$GITHUB_ENV"
+          TELEPAT_MEMORY_PROVISION_MODE=secret             MEMORY_API_KEY="$MEMORY_KEY"             python deploy/provision_memory.py
+
+      - name: Deploy Memory API
+        shell: bash
+        run: |
+          python -m modal deploy deploy/memory_app.py 2>&1             | tee memory-deploy.log
+
+          ENDPOINT="$(grep -Eo 'https://[A-Za-z0-9._-]+\.modal\.run' memory-deploy.log | head -n1 || true)"
+          if [ -z "$ENDPOINT" ]; then
+            echo "::error::Memory deploy completed without endpoint URL."
+            exit 1
+          fi
+          echo "MEMORY_API_URL=$ENDPOINT" >> "$GITHUB_ENV"
+          echo "Memory endpoint discovered."
+
+      - name: Verify persistent Memory API
+        run: python deploy/run_memory_smoke.py
+
+      - name: Configure TELEPAT Memory provider
+        shell: bash
+        run: |
+          TELEPAT_MEMORY_PROVISION_MODE=telepat             python deploy/provision_memory.py
+
+      - name: Redeploy TELEPAT CPU with Memory
+        shell: bash
+        run: |
+          TELEPAT_BUILD_SHA="$GITHUB_SHA"             python -m modal deploy deploy/modal_app.py
+
+      - name: Verify TELEPAT provider probe with Memory
+        run: timeout 300s python deploy/run_provider_probe.py
