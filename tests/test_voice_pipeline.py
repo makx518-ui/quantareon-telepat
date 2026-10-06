@@ -583,28 +583,30 @@ async def test_successful_voice_turn_uses_one_turn_id_end_to_end(
 ) -> None:
     captured_request_ids: list[str] = []
 
-    async def fake_chat(request):
-        captured_request_ids.append(request.request_id or "")
-        return ChatResponse(
-            reply="Ответ",
-            request_id=request.request_id,
-            user_id=request.user_id or "u",
-            session_id=request.session_id or "s",
-            intent="casual_conversation",
-            avatar_state="soft_smile",
-            provider="mock",
-        )
+    class _FakeOrchestrator:
+        async def handle_chat(self, request):
+            captured_request_ids.append(request.request_id or "")
+            return ChatResponse(
+                reply="Ответ",
+                request_id=request.request_id,
+                user_id=request.user_id or "u",
+                session_id=request.session_id or "s",
+                intent="casual_conversation",
+                avatar_state="soft_smile",
+                provider="mock",
+            )
 
-    async def fake_tts(text: str, *, language: str):
-        return b"mp3", "fake-tts"
+    class _FakeTTSRouter:
+        async def synthesize(self, text: str, *, language: str):
+            return b"mp3", "fake-tts"
 
     monkeypatch.setattr(
-        "telepat.voice.session.orchestrator.handle_chat",
-        fake_chat,
+        "telepat.voice.session.orchestrator",
+        _FakeOrchestrator(),
     )
     monkeypatch.setattr(
-        "telepat.voice.session.tts_router.synthesize",
-        fake_tts,
+        "telepat.voice.session.tts_router",
+        _FakeTTSRouter(),
     )
 
     websocket = _FakeVoiceWebSocket()
