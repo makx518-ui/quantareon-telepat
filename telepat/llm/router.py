@@ -6,8 +6,9 @@ from time import perf_counter
 from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
 from telepat.observability.metrics import runtime_metrics
+from telepat.observability.usage import usage_registry
 
-from .base import ConversationProvider
+from .base import ConversationProvider, ConversationResult
 from .claude import ClaudeConversationProvider
 from .gemini import GeminiConversationProvider
 from .groq import GroqConversationProvider
@@ -93,14 +94,28 @@ class LLMRouter:
 
             started = perf_counter()
             try:
-                text = await candidate.generate(context)
+                result = await candidate.generate(context)
+                if isinstance(result, str):
+                    # Backward-compatible bridge for diagnostic/custom
+                    # providers. Production providers return ConversationResult.
+                    result = ConversationResult(
+                        text=result,
+                        model=candidate.name,
+                    )
+
                 runtime_metrics.record(
                     "llm",
                     (perf_counter() - started) * 1000,
                     ok=True,
                     provider=candidate.name,
                 )
-                return text, candidate.name
+                usage_registry.record(
+                    context.session_id,
+                    provider=candidate.name,
+                    model=result.model,
+                    usage=result.usage,
+                )
+                return result.text, candidate.name
             except Exception as exc:
                 runtime_metrics.record(
                     "llm",
