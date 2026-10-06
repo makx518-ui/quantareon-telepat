@@ -5,6 +5,7 @@ import os
 from telepat.astro.gemini_interpreter import gemini_astro_interpreter
 from telepat.config.preflight import configuration_preflight
 from telepat.config.settings import settings
+from telepat.core.session_service import session_store
 from telepat.memory.service import memory_adapter
 from telepat.observability.usage import usage_registry
 from telepat.voice.microsoft_tts import microsoft_tts
