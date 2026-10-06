@@ -22,20 +22,23 @@ def test_response_policy_removes_consecutive_duplicate_paragraphs() -> None:
 
 
 def test_response_policy_truncates_at_sentence_boundary() -> None:
-    text = (
-        "Первое предложение. "
-        "Второе предложение достаточно длинное. "
-        "Третье предложение тоже есть."
+    text = " ".join(
+        [
+            "Первое предложение.",
+            "Второе предложение достаточно длинное.",
+            "Третье предложение тоже есть.",
+        ]
+        * 5
     )
 
     result = apply_response_policy(
         text,
-        max_chars=55,
+        max_chars=220,
     )
 
     assert result.truncated is True
     assert result.text.endswith("…")
-    assert len(result.text) <= 56
+    assert len(result.text) <= 221
     assert result.text.startswith("Первое предложение.")
 
 
