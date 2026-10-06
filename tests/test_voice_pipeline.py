@@ -191,6 +191,7 @@ def test_voice_auto_language_uses_detected_language() -> None:
     assert session._transcripts.get_nowait() == (
         "こんにちは",
         "ja-JP",
+        1,
     )
 
 
@@ -271,11 +272,15 @@ def test_barge_in_stops_browser_playback_after_response_task_finished() -> None:
         language="ru",
     )
     session._audio_playback_active = True
+    session._playback_turn_id = 7
 
     asyncio.run(session._on_speech_start())
 
     assert session._audio_playback_active is False
-    assert websocket.messages == [{"type": "barge_in"}]
+    assert session._playback_turn_id is None
+    assert websocket.messages == [
+        {"type": "barge_in", "turn_id": 7}
+    ]
 
 
 def test_playback_end_control_clears_server_flag() -> None:
@@ -292,6 +297,55 @@ def test_playback_end_control_clears_server_flag() -> None:
 
     assert session._audio_playback_active is False
 
+
+
+def test_playback_end_for_old_turn_does_not_clear_current_playback() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session._audio_playback_active = True
+    session._playback_turn_id = 9
+
+    asyncio.run(
+        session._handle_control(
+            '{"type":"playback_end","turn_id":8}'
+        )
+    )
+
+    assert session._audio_playback_active is True
+    assert session._playback_turn_id == 9
+
+    asyncio.run(
+        session._handle_control(
+            '{"type":"playback_end","turn_id":9}'
+        )
+    )
+
+    assert session._audio_playback_active is False
+    assert session._playback_turn_id is None
+
+
+def test_voice_turn_ids_are_monotonic() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+
+    asyncio.run(session._on_transcript("one"))
+    asyncio.run(session._on_transcript("two"))
+
+    first = session._transcripts.get_nowait()
+    second = session._transcripts.get_nowait()
+
+    assert first[2] == 1
+    assert second[2] == 2
 
 
 class _BrokenDeepgramSocket:
@@ -393,6 +447,7 @@ async def test_voice_reports_llm_provider_outage(monkeypatch) -> None:
         "type": "error",
         "stage": "llm",
         "message": "conversation_provider_unavailable",
+        "turn_id": 1,
     }
 
 
