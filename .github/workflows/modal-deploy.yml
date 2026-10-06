@@ -30,6 +30,9 @@ jobs:
       TELEPAT_ATTACH_PROVIDER_SECRET: "0"
       TELEPAT_REGISTER_GPU: ${{ secrets.TELEPAT_AVATAR_GPU_ENABLED || '0' }}
       TELEPAT_BUILD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      TELEPAT_REAL_PROVIDER_LOAD_ENABLED: ${{ secrets.TELEPAT_REAL_PROVIDER_LOAD_ENABLED || '0' }}
+      TELEPAT_REAL_PROVIDER_LOAD_REQUESTS: ${{ secrets.TELEPAT_REAL_PROVIDER_LOAD_REQUESTS || '3' }}
+      TELEPAT_REAL_PROVIDER_LOAD_CONCURRENCY: ${{ secrets.TELEPAT_REAL_PROVIDER_LOAD_CONCURRENCY || '2' }}
 
     steps:
       - name: Checkout
