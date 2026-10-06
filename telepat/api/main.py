@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket
@@ -77,6 +79,7 @@ async def health() -> dict[str, object]:
         "ok": True,
         "service": "quantareon-telepat",
         "version": "0.4.0",
+        "build_sha": os.getenv("TELEPAT_BUILD_SHA", "local"),
         "phase": 5,
         "features": {
             "chat": True,
