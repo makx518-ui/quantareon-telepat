@@ -99,9 +99,18 @@ Confirmed in the live Modal environment:
 - voice sessions enforce idle and maximum-duration cost guards
 - PCM frame-size/realtime pacing guards stop accelerated STT audio flooding before Deepgram
 
-The deterministic core is ready. Real external providers are not yet attached
-to the Modal environment, so current live conversation falls back to the mock
-provider and voice reports Deepgram/TTS as unconfigured.
+The live runtime now uses real external providers. Confirmed in Modal:
+
+- Gemini Astro interpretation is operational
+- Groq conversation is operational through the provider router
+- Deepgram Nova-3 is operational
+- Yandex SpeechKit Ermil is operational
+- persistent Memory recall/store is operational through a separate Modal app
+- the real voice E2E smoke completes `Deepgram -> LLM -> Ermil -> browser audio`
+
+Current production-readiness blockers are only `avatar_engine` and
+`avatar_gpu`. The L4 deployment boundary is ready, but Modal currently requires
+an account payment method before L4 GPU functions can be deployed.
 
 The named Modal Secret `quantareon-telepat-secrets` always exists and is
 attached unconditionally to the CPU runtime. GitHub provider-sync automation
@@ -133,8 +142,10 @@ Implemented:
 - clean upstream-STT disconnect handling
 - bounded idle/max session lifetime and browser `session_end` handling
 
-The next voice gate is a real provider-backed run:
-`microphone -> Deepgram -> LLM -> TTS -> browser`.
+The provider-backed voice gate is complete. Automated deploy smoke now drives
+a real Russian utterance through `Deepgram -> Groq -> Yandex Ermil` and verifies
+returned binary audio. The remaining voice validation is a human browser
+microphone/barge-in session after final site integration.
 
 ## Production hardening already in place
 
@@ -182,6 +193,11 @@ GitHub Actions provides:
 - **TELEPAT Modal Provider Sync** — merge-safe Modal Secret/runtime config sync
 - **TELEPAT Modal Deploy** — CPU deploy + live HTTP/WebSocket/concurrency smoke
 - **TELEPAT Modal Smoke** — deployed provider probe and optional GPU preflight
+- **TELEPAT Memory Deploy** — persistent Memory API deploy + recall/store smoke
+- **TELEPAT Avatar Asset Seed** — benchmark source/audio seed into Modal Volume
+- **TELEPAT Avatar GPU Preflight** — L4 hardware/assets probe
+- **TELEPAT MuseTalk L4 Benchmark** — pinned MuseTalk 1.5 benchmark
+- **TELEPAT LatentSync L4 Benchmark** — pinned LatentSync 1.6 benchmark
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md),
 [VOICE_PROTOCOL.md](VOICE_PROTOCOL.md) and [MODAL_SETUP.md](MODAL_SETUP.md).
