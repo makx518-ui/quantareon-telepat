@@ -435,3 +435,82 @@ async def test_voice_policy_end_sends_clean_session_end() -> None:
         "reason": "max_duration",
     }
     assert websocket.closed == (1000, "max_duration")
+
+
+
+def test_voice_audio_policy_accepts_normal_pcm_pacing() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session.max_frame_bytes = 65536
+    session.audio_burst_seconds = 1.0
+    session.max_audio_realtime_factor = 1.5
+
+    assert session._audio_policy_violation(
+        8192,
+        now=100.0,
+    ) is None
+    assert session._audio_policy_violation(
+        8192,
+        now=100.25,
+    ) is None
+
+
+def test_voice_audio_policy_rejects_oversized_frame() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session.max_frame_bytes = 1024
+
+    assert session._audio_policy_violation(
+        1025,
+        now=0.0,
+    ) == "frame_too_large"
+
+
+def test_voice_audio_policy_rejects_faster_than_realtime_flood() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session.max_frame_bytes = 65536
+    session.audio_burst_seconds = 0.1
+    session.max_audio_realtime_factor = 1.0
+
+    assert session._audio_policy_violation(
+        4000,
+        now=0.0,
+    ) == "audio_rate_limit"
+
+
+@pytest.mark.asyncio
+async def test_voice_policy_end_supports_policy_close_code() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+
+    await session._end_by_policy(
+        "audio_rate_limit",
+        code=1008,
+    )
+
+    assert websocket.messages[-1] == {
+        "type": "session_end",
+        "reason": "audio_rate_limit",
+    }
+    assert websocket.closed == (1008, "audio_rate_limit")
