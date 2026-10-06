@@ -1,6 +1,7 @@
 def test_modal_deployment_modules_import() -> None:
     import deploy.avatar_gpu as avatar_gpu
     import deploy.modal_app as modal_app
+    import deploy.run_avatar_probe as run_avatar_probe
     import deploy.runtime as runtime
     import deploy.smoke as smoke
 
@@ -10,5 +11,6 @@ def test_modal_deployment_modules_import() -> None:
     assert avatar_gpu.AvatarGPUWorker is not None
     assert modal_app.web is not None
     assert modal_app.provider_probe is not None
+    assert callable(run_avatar_probe.main)
     assert smoke.app is not None
     assert callable(smoke.main)
