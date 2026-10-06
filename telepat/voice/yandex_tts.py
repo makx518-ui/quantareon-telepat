@@ -33,11 +33,13 @@ class YandexSpeechKitTTS:
             return f"Bearer {self.iam_token}"
         raise RuntimeError("Yandex SpeechKit credentials are not configured")
 
-    async def synthesize(
+    async def _synthesize_format(
         self,
         text: str,
         *,
-        language: str = "ru",
+        language: str,
+        audio_format: str,
+        sample_rate_hertz: int | None = None,
     ) -> bytes:
         if not self.configured:
             raise RuntimeError("Yandex SpeechKit is not configured")
@@ -56,8 +58,11 @@ class YandexSpeechKitTTS:
             "voice": self.voice,
             "emotion": self.emotion,
             "speed": self.speed,
-            "format": "mp3",
+            "format": audio_format,
         }
+        if sample_rate_hertz is not None:
+            form["sampleRateHertz"] = str(sample_rate_hertz)
+
         # API-key authentication uses the service-account folder automatically.
         if not self.api_key and self.folder_id:
             form["folderId"] = self.folder_id
@@ -72,6 +77,34 @@ class YandexSpeechKitTTS:
             )
             response.raise_for_status()
             return response.content
+
+    async def synthesize(
+        self,
+        text: str,
+        *,
+        language: str = "ru",
+    ) -> bytes:
+        return await self._synthesize_format(
+            text,
+            language=language,
+            audio_format="mp3",
+        )
+
+    async def synthesize_lpcm(
+        self,
+        text: str,
+        *,
+        language: str = "ru",
+        sample_rate_hertz: int = 16000,
+    ) -> bytes:
+        if sample_rate_hertz not in {8000, 16000, 48000}:
+            raise ValueError("Unsupported Yandex LPCM sample rate")
+        return await self._synthesize_format(
+            text,
+            language=language,
+            audio_format="lpcm",
+            sample_rate_hertz=sample_rate_hertz,
+        )
 
 
 yandex_tts = YandexSpeechKitTTS()

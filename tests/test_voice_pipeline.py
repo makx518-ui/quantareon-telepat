@@ -836,3 +836,47 @@ async def test_avatar_render_failure_keeps_audio_fallback(
         message.get("type") == "audio_start"
         for message in websocket.messages
     )
+
+
+
+def test_yandex_lpcm_requests_16khz_raw_audio(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_synthesize_format(
+        text: str,
+        *,
+        language: str,
+        audio_format: str,
+        sample_rate_hertz: int | None = None,
+    ) -> bytes:
+        captured.update(
+            {
+                "text": text,
+                "language": language,
+                "audio_format": audio_format,
+                "sample_rate_hertz": sample_rate_hertz,
+            }
+        )
+        return b"pcm"
+
+    monkeypatch.setattr(
+        yandex_tts,
+        "_synthesize_format",
+        fake_synthesize_format,
+    )
+
+    audio = asyncio.run(
+        yandex_tts.synthesize_lpcm(
+            "Привет",
+            language="ru",
+            sample_rate_hertz=16000,
+        )
+    )
+
+    assert audio == b"pcm"
+    assert captured == {
+        "text": "Привет",
+        "language": "ru",
+        "audio_format": "lpcm",
+        "sample_rate_hertz": 16000,
+    }

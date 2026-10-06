@@ -3,22 +3,159 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import urllib.request
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
+import modal
 import websockets
+
+
+APP_NAME = "quantareon-telepat"
+VOICE_TEST_FUNCTION = "voice_smoke_audio"
 
 
 def websocket_url(http_base: str) -> str:
     parts = urlsplit(http_base.rstrip("/"))
     scheme = "wss" if parts.scheme == "https" else "ws"
     path = parts.path.rstrip("/") + "/ws/voice"
+    suffix = (
+        os.getenv("TELEPAT_BUILD_SHA", "local")
+        .strip()
+        .replace("/", "-")[:24]
+        or "local"
+    )
     query = urlencode(
         {
-            "user_id": "telepat-live-voice-smoke",
+            "user_id": f"telepat-live-voice-smoke-{suffix}",
+            "session_id": f"telepat-live-voice-session-{suffix}",
             "language": "ru",
         }
     )
     return urlunsplit((scheme, parts.netloc, path, query, ""))
+
+
+def _provider_status(http_base: str) -> dict[str, bool]:
+    req = urllib.request.Request(
+        http_base.rstrip("/") + "/health/providers",
+        headers={"Accept": "application/json"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=20) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    return {
+        str(key): bool(value)
+        for key, value in data.items()
+    }
+
+
+def _load_voice_test_pcm() -> bytes:
+    generator = modal.Function.from_name(
+        APP_NAME,
+        VOICE_TEST_FUNCTION,
+    )
+    audio = generator.remote()
+    if not isinstance(audio, bytes) or not audio:
+        raise RuntimeError("TELEPAT voice smoke PCM generator returned no audio")
+    return audio
+
+
+async def _stream_pcm_realtime(ws, audio: bytes) -> None:
+    bytes_per_second = 32000
+    frame_bytes = 3200  # 100 ms of PCM16 mono 16 kHz.
+
+    payload = audio + (b"\x00\x00" * 8000)  # trailing 500 ms silence
+    for offset in range(0, len(payload), frame_bytes):
+        frame = payload[offset:offset + frame_bytes]
+        if not frame:
+            continue
+        await ws.send(frame)
+        await asyncio.sleep(len(frame) / bytes_per_second)
+
+
+async def _exercise_real_voice_turn(ws) -> dict[str, object]:
+    pcm = await asyncio.to_thread(_load_voice_test_pcm)
+    await _stream_pcm_realtime(ws, pcm)
+    await ws.send(json.dumps({"type": "finalize"}))
+
+    transcript = ""
+    reply = ""
+    llm_provider = ""
+    tts_provider = ""
+    turn_id = None
+    audio_bytes = 0
+    accepting_audio = False
+
+    async with asyncio.timeout(90):
+        while True:
+            raw = await ws.recv()
+
+            if isinstance(raw, bytes):
+                if accepting_audio:
+                    audio_bytes += len(raw)
+                continue
+
+            event = json.loads(raw)
+            kind = event.get("type")
+
+            if kind == "error":
+                raise RuntimeError(
+                    "Voice E2E failed at "
+                    + str(event.get("stage") or "unknown")
+                )
+
+            if kind == "session_end":
+                raise RuntimeError(
+                    "Voice E2E session ended before audio response: "
+                    + str(event.get("reason") or "unknown")
+                )
+
+            if kind == "transcript" and event.get("final") is True:
+                transcript = str(event.get("text") or "").strip()
+                turn_id = event.get("turn_id")
+
+            elif kind == "reply":
+                reply = str(event.get("text") or "").strip()
+                llm_provider = str(event.get("provider") or "")
+                if turn_id is None:
+                    turn_id = event.get("turn_id")
+
+            elif kind == "audio_start":
+                tts_provider = str(event.get("provider") or "")
+                accepting_audio = True
+                if turn_id is None:
+                    turn_id = event.get("turn_id")
+
+            elif kind == "audio_end":
+                accepting_audio = False
+                end_turn_id = event.get("turn_id")
+                if turn_id is not None and end_turn_id is not None:
+                    assert int(end_turn_id) == int(turn_id), event
+                break
+
+    assert transcript, "Deepgram returned no final transcript"
+    assert reply, "Voice orchestrator returned no reply"
+    assert llm_provider and llm_provider != "mock", llm_provider
+    assert tts_provider, "TTS provider missing"
+    assert audio_bytes > 0, "Voice response contained no binary audio"
+
+    await ws.send(
+        json.dumps(
+            {
+                "type": "playback_end",
+                "turn_id": turn_id,
+            }
+        )
+    )
+
+    return {
+        "e2e_turn": True,
+        "transcript_chars": len(transcript),
+        "reply_chars": len(reply),
+        "llm_provider": llm_provider,
+        "tts_provider": tts_provider,
+        "audio_bytes": audio_bytes,
+        "turn_id": turn_id,
+    }
 
 
 async def _check_once(url: str) -> dict[str, object]:
@@ -52,12 +189,31 @@ async def _check_once(url: str) -> dict[str, object]:
         pong = json.loads(pong_raw)
         assert pong.get("type") == "pong", pong
 
-        return {
+        result: dict[str, object] = {
             "websocket": True,
             "deepgram_configured": True,
             "ready": True,
             "ping_pong": True,
         }
+
+        base = os.environ["TELEPAT_ENDPOINT"]
+        providers = await asyncio.to_thread(_provider_status, base)
+        conversation_ready = any(
+            providers.get(name)
+            for name in ("gemini", "groq", "openai", "claude")
+        )
+
+        if (
+            providers.get("deepgram")
+            and providers.get("yandex_ermil")
+            and conversation_ready
+        ):
+            result.update(await _exercise_real_voice_turn(ws))
+        else:
+            result["e2e_turn"] = False
+            result["e2e_skip_reason"] = "required_real_providers_not_configured"
+
+        return result
 
 
 async def run() -> None:

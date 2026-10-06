@@ -28,3 +28,22 @@ async def provider_probe() -> dict[str, object]:
     from telepat.diagnostics.provider_probe import run_provider_probe
 
     return await run_provider_probe()
+
+
+@app.function(
+    image=cpu_image,
+    secrets=provider_secrets,
+    timeout=60,
+)
+async def voice_smoke_audio() -> bytes:
+    """Generate provider-backed PCM used only by the deploy voice smoke."""
+    from telepat.voice.yandex_tts import yandex_tts
+
+    audio = await yandex_tts.synthesize_lpcm(
+        "Привет, Телепат. Скажи коротко, что ты меня слышишь.",
+        language="ru",
+        sample_rate_hertz=16000,
+    )
+    if not audio:
+        raise RuntimeError("Yandex voice smoke audio is empty")
+    return audio
