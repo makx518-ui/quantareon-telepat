@@ -107,6 +107,13 @@ def main() -> None:
     assert "providers" in contract
     assert "capabilities" in contract
 
+    status, config_preflight = request_json(
+        "GET",
+        base + "/health/config-preflight",
+    )
+    assert status == 200, (status, config_preflight)
+    assert config_preflight["ok"] is True, config_preflight
+
     status, production = request_json(
         "GET",
         base + "/health/production-readiness",
