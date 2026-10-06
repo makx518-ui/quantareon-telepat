@@ -40,7 +40,9 @@ class VoiceSession:
         self.session_id = session_id
         self.language = language or "ru"
 
-        self._transcripts: asyncio.Queue[str] = asyncio.Queue(maxsize=20)
+        self._transcripts: asyncio.Queue[tuple[str, str]] = asyncio.Queue(
+            maxsize=20
+        )
         self._processor_task: asyncio.Task | None = None
         self._response_task: asyncio.Task | None = None
         self._audio_playback_active = False
@@ -79,6 +81,7 @@ class VoiceSession:
                     "sample_rate": 16000,
                     "encoding": "linear16",
                     "language": self.language,
+                    "stt_language": self.stt.language,
                 }
             )
             await self._browser_receive_loop()
@@ -173,13 +176,22 @@ class VoiceSession:
         except Exception:
             pass
 
+    def _turn_language(self) -> str:
+        requested = (self.language or "ru").strip()
+        if requested.lower() not in {"auto", "multi"}:
+            return requested
+
+        return self.stt.detected_language or "ru"
+
     async def _on_transcript(self, transcript: str) -> None:
         if self._transcripts.full():
             try:
                 self._transcripts.get_nowait()
             except asyncio.QueueEmpty:
                 pass
-        self._transcripts.put_nowait(transcript)
+        self._transcripts.put_nowait(
+            (transcript, self._turn_language())
+        )
 
     async def _on_stt_disconnect(self) -> None:
         """Fail the browser voice socket when the upstream STT stream dies."""
@@ -223,26 +235,36 @@ class VoiceSession:
 
     async def _process_transcripts(self) -> None:
         while not self._closed:
-            transcript = await self._transcripts.get()
+            transcript, turn_language = await self._transcripts.get()
 
             if self._response_task and not self._response_task.done():
                 self._response_task.cancel()
 
             self._response_task = asyncio.create_task(
-                self._respond(transcript)
+                self._respond(
+                    transcript,
+                    turn_language=turn_language,
+                )
             )
             try:
                 await self._response_task
             except asyncio.CancelledError:
                 continue
 
-    async def _respond(self, transcript: str) -> None:
+    async def _respond(
+        self,
+        transcript: str,
+        *,
+        turn_language: str | None = None,
+    ) -> None:
+        language = turn_language or self._turn_language()
         try:
             await self.websocket.send_json(
                 {
                     "type": "transcript",
                     "text": transcript,
                     "final": True,
+                    "language": language,
                 }
             )
             await self.websocket.send_json(
@@ -257,7 +279,7 @@ class VoiceSession:
                     message=transcript,
                     user_id=self.user_id,
                     session_id=self.session_id,
-                    language=self.language,
+                    language=language,
                 )
             )
             self.user_id = response.user_id
@@ -272,12 +294,13 @@ class VoiceSession:
                     "intent": response.intent,
                     "avatar_state": response.avatar_state,
                     "provider": response.provider,
+                    "language": language,
                 }
             )
 
             audio, tts_provider = await tts_router.synthesize(
                 response.reply,
-                language=self.language,
+                language=language,
             )
             if not audio:
                 await self.websocket.send_json(
