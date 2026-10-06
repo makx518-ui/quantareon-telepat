@@ -28,6 +28,7 @@ jobs:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       TELEPAT_ATTACH_PROVIDER_SECRET: "0"
+      TELEPAT_AVATAR_GPU_ENABLED: ${{ secrets.TELEPAT_AVATAR_GPU_ENABLED || '0' }}
 
     steps:
       - name: Checkout
@@ -89,3 +90,12 @@ jobs:
           CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
           MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
             timeout 300s python deploy/run_provider_probe.py
+
+      - name: Probe TELEPAT avatar GPU worker
+        if: env.TELEPAT_AVATAR_GPU_ENABLED == '1' || env.TELEPAT_AVATAR_GPU_ENABLED == 'true'
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
+            timeout 180s python deploy/run_avatar_probe.py
