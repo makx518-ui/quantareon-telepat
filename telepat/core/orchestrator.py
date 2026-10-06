@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import weakref
 from collections.abc import Coroutine
 from dataclasses import dataclass, field
@@ -69,6 +71,21 @@ class Orchestrator:
                 self._session_locks[session_id] = lock
             return lock
 
+    @staticmethod
+    def _request_fingerprint(request: ChatRequest) -> str:
+        payload = json.dumps(
+            {
+                "message": request.message,
+                "language": request.language,
+                "metadata": request.metadata,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            default=str,
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
     async def handle_chat(self, request: ChatRequest) -> ChatResponse:
         session = session_store.get_or_create(
             session_id=request.session_id,
@@ -85,10 +102,17 @@ class Orchestrator:
         session,
         request: ChatRequest,
     ) -> ChatResponse:
-        if request.request_id:
+        request_fingerprint = (
+            self._request_fingerprint(request)
+            if request.request_id
+            else None
+        )
+
+        if request.request_id and request_fingerprint:
             cached = session_store.get_idempotent_response(
                 session.session_id,
                 request.request_id,
+                request_fingerprint,
             )
             if cached is not None:
                 return cached
@@ -177,10 +201,11 @@ class Orchestrator:
             provider=provider_name,
         )
 
-        if request.request_id:
+        if request.request_id and request_fingerprint:
             session_store.set_idempotent_response(
                 session.session_id,
                 request.request_id,
+                request_fingerprint,
                 response,
             )
 
