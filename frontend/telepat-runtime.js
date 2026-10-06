@@ -77,7 +77,23 @@
         if (detail.session_id) this.session.session_id = detail.session_id;
       };
 
+      this._onAvatarMedia = (event) => {
+        if (!this.avatar) return;
+        const detail = (event && event.detail) || {};
+        if (!detail.media) return;
+
+        this.avatar.setLiveMedia(
+          detail.media,
+          {
+            turnId: detail.turn_id || detail.turnId || null,
+            type: detail.media_type || 'video/mp4',
+            muted: true
+          }
+        );
+      };
+
       global.addEventListener('telepat:reply', this._onReply);
+      global.addEventListener('telepat:avatar-media', this._onAvatarMedia);
     }
 
     setBirth(birth) {
@@ -240,6 +256,10 @@
       this.destroyed = true;
 
       global.removeEventListener('telepat:reply', this._onReply);
+      global.removeEventListener(
+        'telepat:avatar-media',
+        this._onAvatarMedia
+      );
 
       if (this.voice) {
         await this.voice.stop();
