@@ -7,7 +7,7 @@ from telepat.config.prompt_loader import load_prompt
 from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
 
-from .base import ConversationProvider
+from .base import ConversationProvider, ConversationResult, ProviderUsage
 from .prompt import build_context_payload
 
 
@@ -18,7 +18,7 @@ class GeminiConversationProvider(ConversationProvider):
     def configured(self) -> bool:
         return bool(os.getenv("GEMINI_API_KEY"))
 
-    async def generate(self, context: ContextPacket) -> str:
+    async def generate(self, context: ContextPacket) -> ConversationResult:
         if not self.configured:
             raise RuntimeError("GEMINI_API_KEY is not configured")
 
@@ -26,7 +26,7 @@ class GeminiConversationProvider(ConversationProvider):
         prompt = build_context_payload(context)
         system_instruction = load_prompt("telepat.md")
 
-        def _call() -> str:
+        def _call() -> ConversationResult:
             from google import genai
 
             client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
@@ -39,6 +39,26 @@ class GeminiConversationProvider(ConversationProvider):
             text = (interaction.output_text or "").strip()
             if not text:
                 raise RuntimeError("Gemini returned an empty response")
-            return text
+
+            usage = getattr(interaction, "usage", None)
+
+            return ConversationResult(
+                text=text,
+                model=str(getattr(interaction, "model", None) or model),
+                usage=ProviderUsage(
+                    input_tokens=int(
+                        getattr(usage, "total_input_tokens", 0) or 0
+                    ),
+                    output_tokens=int(
+                        getattr(usage, "total_output_tokens", 0) or 0
+                    ),
+                    cached_input_tokens=int(
+                        getattr(usage, "total_cached_tokens", 0) or 0
+                    ),
+                    thought_tokens=int(
+                        getattr(usage, "total_thought_tokens", 0) or 0
+                    ),
+                ),
+            )
 
         return await asyncio.to_thread(_call)
