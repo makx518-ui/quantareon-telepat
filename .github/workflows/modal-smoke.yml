@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - ".github/modal-smoke-trigger"
+  workflow_run:
+    workflows: ["TELEPAT Modal Deploy"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -16,6 +19,7 @@ concurrency:
 
 jobs:
   smoke:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     name: Real provider smoke
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -28,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Python 3.12
         uses: actions/setup-python@v5
