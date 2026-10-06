@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from telepat.astro.models import AstroSummary, BirthData
 from telepat.astro.service import astro_service
 from telepat.core.models import SessionState
-from telepat.core.session_manager import session_manager
+from telepat.core.session_service import session_store
 from telepat.memory.compact import compact_memory
 from telepat.memory.service import memory_adapter
 
@@ -72,7 +72,7 @@ async def _bootstrap_memory(session: SessionState) -> bool:
         return bool(session.user_memory)
 
     memory = compact_memory(recalled)
-    session_manager.set_user_memory(session.session_id, memory)
+    session_store.set_user_memory(session.session_id, memory)
     return bool(memory)
 
 
@@ -90,7 +90,7 @@ async def prepare_session_astro(
     async with lock:
         # Re-read inside the lock: a concurrent request may have completed
         # Astro preparation while this request was waiting.
-        session = session_manager.get(session_id)
+        session = session_store.get(session_id)
         if session is None:
             raise RuntimeError("TELEPAT session does not exist")
 
@@ -112,11 +112,11 @@ async def prepare_session_astro(
             language=language,
         )
 
-        session_manager.set_astro_summary(
+        session_store.set_astro_summary(
             session_id,
             summary.as_context(),
         )
-        session_manager.update_metadata(
+        session_store.update_metadata(
             session_id,
             astro_birth_fingerprint=fingerprint,
             astro_provider=summary.provider,
@@ -127,7 +127,7 @@ async def prepare_session_astro(
 async def bootstrap_session(
     request: SessionBootstrapRequest,
 ) -> SessionBootstrapResponse:
-    session = session_manager.get_or_create(
+    session = session_store.get_or_create(
         session_id=request.session_id,
         user_id=request.user_id,
         language=request.language,
