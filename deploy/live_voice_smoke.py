@@ -21,10 +21,7 @@ def websocket_url(http_base: str) -> str:
     return urlunsplit((scheme, parts.netloc, path, query, ""))
 
 
-async def run() -> None:
-    base = os.environ["TELEPAT_ENDPOINT"]
-    url = websocket_url(base)
-
+async def _check_once(url: str) -> dict[str, object]:
     async with websockets.connect(
         url,
         open_timeout=20,
@@ -41,16 +38,11 @@ async def run() -> None:
         if kind == "error":
             assert first.get("stage") == "stt", first
             assert "Deepgram" in str(first.get("message") or ""), first
-            print(
-                json.dumps(
-                    {
-                        "websocket": True,
-                        "deepgram_configured": False,
-                        "controlled_error": True,
-                    }
-                )
-            )
-            return
+            return {
+                "websocket": True,
+                "deepgram_configured": False,
+                "controlled_error": True,
+            }
 
         assert kind == "ready", first
 
@@ -60,16 +52,36 @@ async def run() -> None:
         pong = json.loads(pong_raw)
         assert pong.get("type") == "pong", pong
 
-        print(
-            json.dumps(
-                {
-                    "websocket": True,
-                    "deepgram_configured": True,
-                    "ready": True,
-                    "ping_pong": True,
-                }
-            )
-        )
+        return {
+            "websocket": True,
+            "deepgram_configured": True,
+            "ready": True,
+            "ping_pong": True,
+        }
+
+
+async def run() -> None:
+    base = os.environ["TELEPAT_ENDPOINT"]
+    url = websocket_url(base)
+    retries = max(
+        1,
+        int(os.getenv("TELEPAT_SMOKE_TRANSPORT_RETRIES", "3")),
+    )
+
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            result = await _check_once(url)
+            print(json.dumps(result))
+            return
+        except (TimeoutError, OSError) as exc:
+            last_error = exc
+            if attempt >= retries:
+                break
+            await asyncio.sleep(0.5 * attempt)
+
+    assert last_error is not None
+    raise last_error
 
 
 if __name__ == "__main__":
