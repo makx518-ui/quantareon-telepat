@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 
@@ -66,7 +67,10 @@ async def provider_smoke() -> dict[str, object]:
 
     calculation = None
     try:
-        calculation = await astro_service.calculate(birth)
+        calculation = await asyncio.wait_for(
+            astro_service.calculate(birth),
+            timeout=30,
+        )
         report["astro_engine"] = {
             "ok": True,
             "source": calculation.source,
@@ -83,9 +87,12 @@ async def provider_smoke() -> dict[str, object]:
     summary = None
     if providers.get("astro_gemini") and calculation is not None:
         try:
-            _calculation, summary = await astro_service.calculate_and_interpret(
-                birth,
-                language="ru",
+            _calculation, summary = await asyncio.wait_for(
+                astro_service.calculate_and_interpret(
+                    birth,
+                    language="ru",
+                ),
+                timeout=90,
             )
             report["astro_interpreter"] = {
                 "ok": True,
@@ -116,13 +123,16 @@ async def provider_smoke() -> dict[str, object]:
                 summary.as_context(),
             )
 
-        response = await orchestrator.handle_chat(
-            ChatRequest(
-                message="Коротко поздоровайся и скажи, что TELEPAT готов к диалогу.",
-                user_id=session.user_id,
-                session_id=session.session_id,
-                language="ru",
-            )
+        response = await asyncio.wait_for(
+            orchestrator.handle_chat(
+                ChatRequest(
+                    message="Коротко поздоровайся и скажи, что TELEPAT готов к диалогу.",
+                    user_id=session.user_id,
+                    session_id=session.session_id,
+                    language="ru",
+                )
+            ),
+            timeout=90,
         )
         report["chat"] = {
             "ok": True,
@@ -138,9 +148,12 @@ async def provider_smoke() -> dict[str, object]:
         }
 
     try:
-        audio, provider = await tts_router.synthesize(
-            "TELEPAT готов к разговору.",
-            language="ru",
+        audio, provider = await asyncio.wait_for(
+            tts_router.synthesize(
+                "TELEPAT готов к разговору.",
+                language="ru",
+            ),
+            timeout=60,
         )
         report["tts"] = {
             "ok": bool(audio),
@@ -165,7 +178,10 @@ async def provider_smoke() -> dict[str, object]:
         }
     else:
         try:
-            await stt.connect()
+            await asyncio.wait_for(
+                stt.connect(),
+                timeout=20,
+            )
             report["deepgram"] = {
                 "ok": True,
                 "connected": True,
@@ -176,7 +192,13 @@ async def provider_smoke() -> dict[str, object]:
                 "error": type(exc).__name__,
             }
         finally:
-            await stt.close()
+            try:
+                await asyncio.wait_for(
+                    stt.close(),
+                    timeout=10,
+                )
+            except TimeoutError:
+                pass
 
     failures: list[str] = []
 
