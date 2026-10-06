@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from telepat.astro.gemini_interpreter import gemini_astro_interpreter
+from telepat.config.preflight import configuration_preflight
 from telepat.config.settings import settings
 from telepat.memory.service import memory_adapter
 from telepat.observability.usage import usage_registry
@@ -228,6 +229,7 @@ def provider_contract() -> dict[str, object]:
 def production_readiness_status() -> dict[str, object]:
     """Return the remaining runtime blockers for a complete TELEPAT product."""
     readiness = readiness_status()
+    config_preflight = configuration_preflight()
 
     avatar_engine = os.getenv("TELEPAT_AVATAR_ENGINE", "").strip()
     avatar_gpu_enabled = os.getenv(
@@ -268,17 +270,27 @@ def production_readiness_status() -> dict[str, object]:
         blockers.append("avatar_gpu")
     if not cors_ready:
         blockers.append("cors_policy")
+    if not config_preflight["ok"]:
+        blockers.append("configuration")
 
     if readiness["conversation_ready"] and not cost_rates_configured:
         warnings.append("llm_cost_rates_unconfigured")
     if production_mode and session_store.kind == "in_process":
         warnings.append("single_container_session_store")
 
+    for warning in config_preflight["warnings"]:
+        if warning not in warnings:
+            warnings.append(warning)
+
     return {
         "ready": not blockers,
         "blockers": blockers,
         "warnings": warnings,
         "environment": settings.env,
+        "configuration": {
+            "ok": config_preflight["ok"],
+            "errors": list(config_preflight["errors"]),
+        },
         "capabilities": {
             "conversation": readiness["conversation_ready"],
             "astrofractal_engine": True,
