@@ -28,6 +28,7 @@ from telepat.config.settings import settings
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
 from telepat.core.session_service import session_store
+from telepat.core.session_store import IdempotencyConflictError
 from telepat.llm.router import ConversationUnavailableError
 from telepat.observability.metrics import runtime_metrics
 from telepat.observability.usage import usage_registry
@@ -190,6 +191,11 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
     try:
         return await orchestrator.handle_chat(request)
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="idempotency_key_conflict",
+        ) from exc
     except ConversationUnavailableError as exc:
         raise HTTPException(
             status_code=503,
