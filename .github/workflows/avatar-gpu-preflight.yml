@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: telepat-avatar-gpu-preflight
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   probe:
