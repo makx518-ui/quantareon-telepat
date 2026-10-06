@@ -16,6 +16,7 @@ from telepat.api.session import (
     prepare_session_astro,
 )
 from telepat.api.status import (
+    launch_summary_status,
     privacy_status,
     production_readiness_status,
     provider_contract,
@@ -117,6 +118,11 @@ async def health_readiness() -> dict[str, object]:
 @app.get("/health/production-readiness")
 async def health_production_readiness() -> dict[str, object]:
     return production_readiness_status()
+
+
+@app.get("/health/launch-summary")
+async def health_launch_summary() -> dict[str, object]:
+    return launch_summary_status()
 
 
 @app.get("/health/metrics")
