@@ -87,6 +87,10 @@ class RemoteMemoryAdapter:
             },
         }
 
+        if not self.recall_enabled and not self.store_enabled:
+            report["overall_ok"] = True
+            return report
+
         async with httpx.AsyncClient(timeout=12.0) as client:
             if self.recall_enabled:
                 started = perf_counter()
