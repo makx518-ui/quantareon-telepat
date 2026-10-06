@@ -4,7 +4,8 @@ TELEPAT deliberately separates the avatar engine from the conversation stack.
 
 ## Fixed now
 
-- Modal App: `quantareon-telepat`
+- CPU Modal App: `quantareon-telepat`
+- GPU Modal App: `quantareon-telepat-avatar`
 - initial GPU class: L4
 - GPU scales down after 60 seconds idle
 - persistent Modal Volume: `quantareon-telepat-assets`
@@ -94,8 +95,8 @@ must be chosen explicitly before visual scoring.
 
 ## GPU preflight
 
-When `TELEPAT_AVATAR_GPU_ENABLED=1`, Modal registers
-`AvatarGPUWorker` on L4.
+When `TELEPAT_AVATAR_GPU_ENABLED=1`, the deploy workflow separately deploys
+`quantareon-telepat-avatar` and registers `AvatarGPUWorker` on L4.
 
 `AvatarGPUWorker.probe()` reports:
 
