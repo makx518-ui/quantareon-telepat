@@ -271,7 +271,7 @@ def production_readiness_status() -> dict[str, object]:
 
     if readiness["conversation_ready"] and not cost_rates_configured:
         warnings.append("llm_cost_rates_unconfigured")
-    if production_mode:
+    if production_mode and session_store.kind == "in_process":
         warnings.append("single_container_session_store")
 
     return {
@@ -301,7 +301,6 @@ def production_readiness_status() -> dict[str, object]:
 
 def privacy_status() -> dict[str, object]:
     """Describe runtime retention/privacy controls without user data."""
-    from telepat.core.session_service import session_store
 
     recall_enabled = bool(
         getattr(memory_adapter, "recall_enabled", False)
@@ -313,7 +312,7 @@ def privacy_status() -> dict[str, object]:
     return {
         "metrics_store_user_content": False,
         "rate_limit_identity_hashed": True,
-        "session_store": "in_process",
+        "session_store": session_store.kind,
         "session_ttl_seconds": session_store.ttl_seconds,
         "max_sessions": session_store.max_sessions,
         "max_history_turns": session_store.max_history_turns,
