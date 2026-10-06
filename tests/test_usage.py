@@ -9,6 +9,7 @@ def test_usage_registry_counts_tokens_and_explicit_model_cost() -> None:
             "model-a": {
                 "input": 1.0,
                 "cached_input": 0.5,
+                "cache_write": 1.5,
                 "output": 2.0,
                 "thought": 3.0,
             }
@@ -22,6 +23,7 @@ def test_usage_registry_counts_tokens_and_explicit_model_cost() -> None:
         usage=ProviderUsage(
             input_tokens=1000,
             cached_input_tokens=200,
+            cache_write_input_tokens=50,
             output_tokens=500,
             thought_tokens=100,
         ),
@@ -32,14 +34,15 @@ def test_usage_registry_counts_tokens_and_explicit_model_cost() -> None:
     assert snapshot["calls"] == 1
     assert snapshot["input_tokens"] == 1000
     assert snapshot["cached_input_tokens"] == 200
+    assert snapshot["cache_write_input_tokens"] == 50
     assert snapshot["output_tokens"] == 500
     assert snapshot["thought_tokens"] == 100
-    assert snapshot["total_tokens"] == 1600
+    assert snapshot["total_tokens"] == 1850
     assert snapshot["providers"] == {"provider-a": 1}
     assert snapshot["models"] == {"model-a": 1}
     assert snapshot["fully_priced"] is True
     assert snapshot["unpriced_calls"] == 0
-    assert snapshot["priced_cost_usd"] == 0.0022
+    assert snapshot["priced_cost_usd"] == 0.002475
 
 
 def test_usage_registry_marks_unknown_model_unpriced() -> None:
@@ -107,3 +110,36 @@ def test_usage_registry_expires_with_retention_ttl() -> None:
     now[0] = 11.0
 
     assert registry.snapshot("session-a") is None
+
+
+
+def test_cached_tokens_are_not_subtracted_twice() -> None:
+    registry = UsageRegistry(
+        max_sessions=100,
+        rates={
+            "model-a": {
+                "input": 1.0,
+                "cached_input": 0.5,
+                "output": 2.0,
+            }
+        },
+    )
+
+    # input_tokens is already normalized to uncached tokens.
+    registry.record(
+        "session-a",
+        provider="provider-a",
+        model="model-a",
+        usage=ProviderUsage(
+            input_tokens=800,
+            cached_input_tokens=200,
+            output_tokens=100,
+        ),
+    )
+
+    snapshot = registry.snapshot("session-a")
+    assert snapshot is not None
+    assert snapshot["input_tokens"] == 800
+    assert snapshot["cached_input_tokens"] == 200
+    assert snapshot["total_tokens"] == 1100
+    assert snapshot["priced_cost_usd"] == 0.0011
