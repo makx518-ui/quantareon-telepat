@@ -12,13 +12,13 @@ permissions:
 
 concurrency:
   group: telepat-modal-deploy
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     name: Deploy TELEPAT API
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
@@ -106,17 +106,17 @@ jobs:
       - name: Live API smoke
         id: live_smoke
         continue-on-error: true
-        run: python deploy/live_api_smoke.py
+        run: timeout 180s python deploy/live_api_smoke.py
 
       - name: Live voice WebSocket smoke
         id: voice_smoke
         continue-on-error: true
-        run: python deploy/live_voice_smoke.py
+        run: timeout 180s python deploy/live_voice_smoke.py
 
       - name: Live core concurrency smoke
         id: load_smoke
         continue-on-error: true
-        run: python deploy/live_load_smoke.py
+        run: timeout 240s python deploy/live_load_smoke.py
 
       - name: Modal stderr diagnostics
         if: steps.live_smoke.outcome == 'failure' || steps.voice_smoke.outcome == 'failure' || steps.load_smoke.outcome == 'failure'
