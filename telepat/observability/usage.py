@@ -18,6 +18,7 @@ class _SessionUsage:
     input_tokens: int = 0
     output_tokens: int = 0
     cached_input_tokens: int = 0
+    cache_write_input_tokens: int = 0
     thought_tokens: int = 0
     priced_cost_usd: float = 0.0
     priced_calls: int = 0
@@ -84,6 +85,7 @@ class UsageRegistry:
             for key in (
                 "input",
                 "cached_input",
+                "cache_write",
                 "output",
                 "thought",
             ):
@@ -134,21 +136,23 @@ class UsageRegistry:
         if not rates:
             return None
 
-        cached = min(
-            max(0, usage.cached_input_tokens),
-            max(0, usage.input_tokens),
-        )
-        uncached_input = max(0, usage.input_tokens - cached)
-
+        # Provider adapters normalize usage before it reaches this registry:
+        # input_tokens = uncached input, cached_input_tokens = cache read,
+        # cache_write_input_tokens = cache creation/write. Therefore cost
+        # accounting never guesses whether a vendor total includes cache hits.
         thought_rate = rates.get(
             "thought",
             rates.get("output", 0.0),
         )
 
         cost = (
-            uncached_input * rates.get("input", 0.0)
-            + cached * rates.get(
+            max(0, usage.input_tokens) * rates.get("input", 0.0)
+            + max(0, usage.cached_input_tokens) * rates.get(
                 "cached_input",
+                rates.get("input", 0.0),
+            )
+            + max(0, usage.cache_write_input_tokens) * rates.get(
+                "cache_write",
                 rates.get("input", 0.0),
             )
             + max(0, usage.output_tokens) * rates.get("output", 0.0)
@@ -182,6 +186,10 @@ class UsageRegistry:
                 0,
                 usage.cached_input_tokens,
             )
+            item.cache_write_input_tokens += max(
+                0,
+                usage.cache_write_input_tokens,
+            )
             item.thought_tokens += max(0, usage.thought_tokens)
             item.providers[provider] += 1
             item.models[model] += 1
@@ -203,6 +211,8 @@ class UsageRegistry:
 
             total_tokens = (
                 item.input_tokens
+                + item.cached_input_tokens
+                + item.cache_write_input_tokens
                 + item.output_tokens
                 + item.thought_tokens
             )
@@ -211,6 +221,7 @@ class UsageRegistry:
                 "input_tokens": item.input_tokens,
                 "output_tokens": item.output_tokens,
                 "cached_input_tokens": item.cached_input_tokens,
+                "cache_write_input_tokens": item.cache_write_input_tokens,
                 "thought_tokens": item.thought_tokens,
                 "total_tokens": total_tokens,
                 "providers": dict(item.providers),
