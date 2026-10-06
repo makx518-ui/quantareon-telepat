@@ -19,6 +19,7 @@ from telepat.observability.metrics import runtime_metrics
 from .context_builder import build_context_packet, classify_intent
 from .models import ChatRequest, ChatResponse
 from .plan import OrchestrationPlan, build_plan
+from .response_policy import apply_response_policy
 from .session_service import session_store
 
 
@@ -145,6 +146,7 @@ class Orchestrator:
 
         try:
             reply, provider_name = await llm_router.generate(context)
+            reply = apply_response_policy(reply).text
         except Exception:
             runtime_metrics.record(
                 "turn_total",
