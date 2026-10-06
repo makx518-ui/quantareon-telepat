@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from telepat import __version__
 from telepat.api.main import app
 
 
@@ -11,7 +12,8 @@ def test_health() -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["ok"] is True
-    assert data["version"] == "0.4.0"
+    assert data["version"] == __version__
+    assert __version__ == "0.5.0"
     assert isinstance(data["build_sha"], str)
     assert data["build_sha"]
 
