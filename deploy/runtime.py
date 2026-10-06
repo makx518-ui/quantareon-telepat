@@ -18,6 +18,8 @@ provider_secrets = [telepat_secret] if attach_provider_secret else []
 
 app = modal.App("quantareon-telepat")
 
+build_sha = os.getenv("TELEPAT_BUILD_SHA", "local").strip() or "local"
+
 assets_volume = modal.Volume.from_name(
     "quantareon-telepat-assets",
     create_if_missing=True,
@@ -25,6 +27,7 @@ assets_volume = modal.Volume.from_name(
 
 cpu_image = (
     modal.Image.debian_slim(python_version="3.12")
+    .env({"TELEPAT_BUILD_SHA": build_sha})
     .uv_pip_install(
         "fastapi>=0.115,<1",
         "pydantic>=2.8,<3",
