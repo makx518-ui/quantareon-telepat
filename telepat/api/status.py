@@ -344,3 +344,77 @@ def privacy_status() -> dict[str, object]:
             ),
         },
     }
+
+
+
+def launch_summary_status() -> dict[str, object]:
+    """Compact, non-network launch view assembled from local runtime state."""
+    config = configuration_preflight()
+    readiness = readiness_status()
+    production = production_readiness_status()
+    contract = provider_contract()
+    privacy = privacy_status()
+
+    provider_missing = {
+        name: list(details.get("missing") or [])
+        for name, details in contract["providers"].items()
+        if details.get("missing")
+    }
+
+    runtime_ready = bool(
+        config["ok"]
+        and readiness["core_ready"]
+        and readiness["astro_engine_ready"]
+    )
+    providers_ready = bool(
+        readiness["conversation_ready"]
+        and readiness["astro_interpreter_ready"]
+        and readiness["voice_input_ready"]
+        and readiness["voice_output_ready"]
+        and readiness["memory_ready"]
+    )
+    avatar_ready = bool(
+        production["capabilities"]["avatar_engine"]
+        and production["capabilities"]["avatar_gpu"]
+    )
+
+    return {
+        "ready": bool(production["ready"]),
+        "runtime_ready": runtime_ready,
+        "providers_ready": providers_ready,
+        "avatar_ready": avatar_ready,
+        "site_integration_ready": bool(production["ready"]),
+        "blockers": list(production["blockers"]),
+        "warnings": list(production["warnings"]),
+        "environment": production["environment"],
+        "session_store": {
+            "kind": session_store.kind,
+            "ttl_seconds": session_store.ttl_seconds,
+            "max_sessions": session_store.max_sessions,
+        },
+        "privacy": {
+            "metrics_store_user_content": privacy[
+                "metrics_store_user_content"
+            ],
+            "rate_limit_identity_hashed": privacy[
+                "rate_limit_identity_hashed"
+            ],
+            "session_reuse_requires_user_id": privacy[
+                "session_reuse_requires_user_id"
+            ],
+        },
+        "providers": {
+            "conversation": readiness["conversation_ready"],
+            "astro_interpreter": readiness["astro_interpreter_ready"],
+            "voice_input": readiness["voice_input_ready"],
+            "voice_output": readiness["voice_output_ready"],
+            "memory": readiness["memory_ready"],
+            "missing": provider_missing,
+        },
+        "avatar": dict(production["avatar"]),
+        "configuration": {
+            "ok": config["ok"],
+            "errors": list(config["errors"]),
+            "warnings": list(config["warnings"]),
+        },
+    }
