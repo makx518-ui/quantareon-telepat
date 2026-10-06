@@ -112,13 +112,21 @@ in-memory processes.
 
 ## GPU runtime
 
-L4 registration is intentionally opt-in through one GitHub/Modal runtime flag:
+CPU and GPU are separate Modal Apps:
+
+- `quantareon-telepat` — FastAPI/session/orchestration/provider probe
+- `quantareon-telepat-avatar` — L4 avatar worker only
+
+This separation prevents GPU billing/resource constraints from changing the
+CPU app object graph or blocking CPU deployment.
+
+L4 deployment is intentionally opt-in through one GitHub/Modal runtime flag:
 
 `TELEPAT_AVATAR_GPU_ENABLED=1`
 
-The deploy workflow maps this flag to the deploy-time
-`TELEPAT_REGISTER_GPU` switch, while the same value is synced into the runtime
-secret for production-readiness reporting.
+The deploy workflow always deploys the CPU app and, only when this flag is
+true, separately deploys `deploy/avatar_gpu.py`. The same flag is synced into
+the runtime secret for production-readiness reporting.
 
 The CPU backend deploys without GPU access while the flag is unset/false. When
 enabled, the provider-smoke workflow also runs `deploy/run_avatar_probe.py`,
@@ -127,3 +135,15 @@ checks real GPU availability/assets without hard-coding a lip-sync engine.
 
 Enable the flag only when L4 access/billing is ready and the avatar benchmark
 starts.
+
+
+## Modal object graph rule
+
+`quantareon-telepat-secrets` is attached unconditionally to CPU functions.
+Deployment automation creates the named Secret with a harmless management
+marker when no provider credentials exist yet. This keeps Modal function
+dependencies identical during local deployment and remote container hydration.
+
+Do not conditionally define Modal Functions, Classes, Secrets or Volumes inside
+the CPU app based on environment variables. Optional GPU infrastructure belongs
+in the separate avatar app.
