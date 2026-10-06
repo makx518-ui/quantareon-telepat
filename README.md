@@ -68,7 +68,7 @@ identity + memory recall
 AstroSummary is keyed by a fingerprint of the birth profile and reused instead
 of recalculating on every message.
 
-## Current state — version 0.4.0
+## Current state — version 0.5.0
 
 The TELEPAT CPU backend is deployed and running on Modal.
 
@@ -82,6 +82,7 @@ Confirmed in the live Modal environment:
 - `/health/providers` exposes provider configuration only as booleans
 - `/health/readiness` separates core readiness from external-provider readiness
 - `/health/provider-contract` lists missing configuration names without values
+- `/health/config-preflight` validates provider/runtime policy before network probes
 - `/health/production-readiness` lists remaining product blockers
 - `/health/metrics` exposes privacy-safe latency/error aggregates
 - `/session/bootstrap` creates/reuses TELEPAT identity and session
@@ -89,16 +90,23 @@ Confirmed in the live Modal environment:
 - `/ws/voice` accepts a real WebSocket connection
 - deterministic Astrofractal runs inside Modal and produces the natal machine output
 - browser/voice protocol returns a controlled STT status when Deepgram is absent
-- HTTP and WebSocket smoke tests run automatically after Modal deployment
+- HTTP, WebSocket and concurrency smoke tests run automatically after Modal deployment
 - expensive chat/Astro/voice-connect paths are rate-limited
 - Memory API supports configurable auth header/scheme without changing the adapter
+- chat request idempotency makes bounded POST retries safe
+- per-session turn and Astro preparation locks prevent duplicate LLM/Gemini work
+- voice sessions enforce idle and maximum-duration cost guards
 
 The deterministic core is ready. Real external providers are not yet attached
 to the Modal environment, so current live conversation falls back to the mock
 provider and voice reports Deepgram/TTS as unconfigured.
 
-When the named Modal Secret `quantareon-telepat-secrets` becomes available,
-the GitHub workflows automatically attach it and begin testing real:
+The named Modal Secret `quantareon-telepat-secrets` always exists and is
+attached unconditionally to the CPU runtime. GitHub provider-sync automation
+merge-updates non-empty credentials/runtime policy into it and then chains:
+`Provider Sync -> Modal Deploy -> Provider Smoke`.
+
+When real provider credentials are present, the same diagnostics begin testing:
 
 - Gemini Astro
 - conversation LLM provider(s)
@@ -119,6 +127,9 @@ Implemented:
 - browser-playback-aware interruption
 - Yandex Ermil -> Andrew fallback
 - browser MP3 playback protocol
+- per-utterance automatic language selection
+- clean upstream-STT disconnect handling
+- bounded idle/max session lifetime and browser `session_end` handling
 
 The next voice gate is a real provider-backed run:
 `microphone -> Deepgram -> LLM -> TTS -> browser`.
@@ -134,20 +145,29 @@ The next voice gate is a real provider-backed run:
 - provider configuration contract and production readiness report
 - fixed-window rate limits for expensive public routes
 - engine-neutral avatar benchmark harness
+- stable SessionStore boundary for future shared session persistence
+- runtime configuration preflight
+- bounded LRU chat idempotency cache
+- normalized cached-read/cache-write/thinking token accounting
 
 ## Modal CPU / GPU split
 
-CPU deployment is independent from GPU registration.
+TELEPAT uses two independent Modal Apps:
 
-The API can run without GPU billing. L4 registration is opt-in through
-`TELEPAT_REGISTER_GPU=1`; the actual lip-sync engine remains intentionally
-unselected until benchmark time.
+- `quantareon-telepat` — CPU FastAPI/orchestration/providers
+- `quantareon-telepat-avatar` — optional L4 avatar worker
 
-For the current in-memory Session Manager, the CPU web function is temporarily
-limited to one container. This constraint can be removed after shared session
-state is attached. The avatar benchmark harness is already ready for the future
-L4 comparison and measures warm-up, p50/p95 render latency, real-time factor,
-output size and peak VRAM.
+The CPU app always deploys without requiring GPU billing. GPU deployment is
+opt-in through `TELEPAT_AVATAR_GPU_ENABLED=1` and never changes the CPU Modal
+object graph.
+
+For the current in-process SessionStore, the CPU web function is temporarily
+limited to one container. The stable `SessionStore` boundary allows a future
+shared store to replace it without rewriting API/orchestration callers.
+
+The avatar benchmark harness and deployed GPU preflight already measure/check
+GPU identity, VRAM, benchmark assets, warm-up, p50/p95 render latency,
+real-time factor and output size before an engine is selected.
 
 ## Automation
 
@@ -156,8 +176,9 @@ Normal development does not require a local Modal CLI.
 GitHub Actions provides:
 
 - **TELEPAT CI** — compile + pytest
-- **TELEPAT Modal Smoke** — deterministic core and real provider checks when configured
-- **TELEPAT Modal Deploy** — deploy + live HTTP + live WebSocket smoke
+- **TELEPAT Modal Provider Sync** — merge-safe Modal Secret/runtime config sync
+- **TELEPAT Modal Deploy** — CPU deploy + live HTTP/WebSocket/concurrency smoke
+- **TELEPAT Modal Smoke** — deployed provider probe and optional GPU preflight
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md),
 [VOICE_PROTOCOL.md](VOICE_PROTOCOL.md) and [MODAL_SETUP.md](MODAL_SETUP.md).
