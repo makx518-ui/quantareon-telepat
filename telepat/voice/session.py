@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from time import monotonic
+from uuid import uuid4
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -66,12 +67,16 @@ class VoiceSession:
 
         self._audio_bytes_received = 0
         self._audio_started_at: float | None = None
-        self._transcripts: asyncio.Queue[tuple[str, str]] = asyncio.Queue(
-            maxsize=20
-        )
+        self._transcripts: asyncio.Queue[
+            tuple[str, str, int]
+        ] = asyncio.Queue(maxsize=20)
         self._processor_task: asyncio.Task | None = None
         self._response_task: asyncio.Task | None = None
         self._audio_playback_active = False
+        self._playback_turn_id: int | None = None
+        self._turn_counter = 0
+        self._active_turn_id: int | None = None
+        self._connection_id = uuid4().hex
         self._closed = False
 
         self.stt = DeepgramStreamingSTT(
@@ -137,6 +142,7 @@ class VoiceSession:
                         "type": "error",
                         "stage": "session",
                         "message": type(exc).__name__,
+                        "turn_id": turn_id,
                     }
                 )
             except Exception:
@@ -283,7 +289,14 @@ class VoiceSession:
         elif kind == "ping":
             await self.websocket.send_json({"type": "pong"})
         elif kind == "playback_end":
-            self._audio_playback_active = False
+            turn_id = message.get("turn_id")
+            if (
+                turn_id is None
+                or self._playback_turn_id is None
+                or int(turn_id) == self._playback_turn_id
+            ):
+                self._audio_playback_active = False
+                self._playback_turn_id = None
 
     async def _on_interim(self, transcript: str) -> None:
         try:
@@ -310,8 +323,11 @@ class VoiceSession:
                 self._transcripts.get_nowait()
             except asyncio.QueueEmpty:
                 pass
+
+        self._turn_counter += 1
+        turn_id = self._turn_counter
         self._transcripts.put_nowait(
-            (transcript, self._turn_language())
+            (transcript, self._turn_language(), turn_id)
         )
 
     async def _on_stt_disconnect(self) -> None:
@@ -348,23 +364,36 @@ class VoiceSession:
             self._response_task.cancel()
 
         if response_active or self._audio_playback_active:
+            interrupted_turn_id = (
+                self._playback_turn_id
+                if self._audio_playback_active
+                else self._active_turn_id
+            )
             self._audio_playback_active = False
+            self._playback_turn_id = None
             try:
-                await self.websocket.send_json({"type": "barge_in"})
+                await self.websocket.send_json(
+                    {
+                        "type": "barge_in",
+                        "turn_id": interrupted_turn_id,
+                    }
+                )
             except Exception:
                 pass
 
     async def _process_transcripts(self) -> None:
         while not self._closed:
-            transcript, turn_language = await self._transcripts.get()
+            transcript, turn_language, turn_id = await self._transcripts.get()
 
             if self._response_task and not self._response_task.done():
                 self._response_task.cancel()
 
+            self._active_turn_id = turn_id
             self._response_task = asyncio.create_task(
                 self._respond(
                     transcript,
                     turn_language=turn_language,
+                    turn_id=turn_id,
                 )
             )
             try:
@@ -377,7 +406,13 @@ class VoiceSession:
         transcript: str,
         *,
         turn_language: str | None = None,
+        turn_id: int | None = None,
     ) -> None:
+        if turn_id is None:
+            self._turn_counter += 1
+            turn_id = self._turn_counter
+            self._active_turn_id = turn_id
+
         language = turn_language or self._turn_language()
         try:
             await self.websocket.send_json(
@@ -386,12 +421,14 @@ class VoiceSession:
                     "text": transcript,
                     "final": True,
                     "language": language,
+                    "turn_id": turn_id,
                 }
             )
             await self.websocket.send_json(
                 {
                     "type": "state",
                     "state": "thinking",
+                    "turn_id": turn_id,
                 }
             )
 
@@ -401,8 +438,14 @@ class VoiceSession:
                     user_id=self.user_id,
                     session_id=self.session_id,
                     language=language,
+                    request_id=(
+                        f"voice-{self._connection_id}-{turn_id}"
+                    ),
                 )
             )
+            if turn_id != self._active_turn_id:
+                return
+
             self.user_id = response.user_id
             self.session_id = response.session_id
 
@@ -416,6 +459,7 @@ class VoiceSession:
                     "avatar_state": response.avatar_state,
                     "provider": response.provider,
                     "language": language,
+                    "turn_id": turn_id,
                 }
             )
 
@@ -423,26 +467,36 @@ class VoiceSession:
                 response.reply,
                 language=language,
             )
+            if turn_id != self._active_turn_id:
+                return
             if not audio:
                 await self.websocket.send_json(
                     {
                         "type": "audio_unavailable",
                         "reason": "tts_not_configured_or_failed",
+                        "turn_id": turn_id,
                     }
                 )
                 return
 
             self._audio_playback_active = True
+            self._playback_turn_id = turn_id
             await self.websocket.send_json(
                 {
                     "type": "audio_start",
                     "format": "mp3",
                     "provider": tts_provider,
                     "avatar_state": response.avatar_state,
+                    "turn_id": turn_id,
                 }
             )
             await self.websocket.send_bytes(audio)
-            await self.websocket.send_json({"type": "audio_end"})
+            await self.websocket.send_json(
+                {
+                    "type": "audio_end",
+                    "turn_id": turn_id,
+                }
+            )
 
         except asyncio.CancelledError:
             raise
@@ -454,6 +508,7 @@ class VoiceSession:
                         "type": "error",
                         "stage": "llm",
                         "message": "conversation_provider_unavailable",
+                        "turn_id": turn_id,
                     }
                 )
             except Exception:
