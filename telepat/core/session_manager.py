@@ -4,10 +4,18 @@ import os
 import time
 from collections import OrderedDict
 from collections.abc import Callable
+from dataclasses import dataclass
 from threading import RLock
 from uuid import uuid4
 
 from .models import ChatResponse, ConversationTurn, SessionState
+from .session_store import IdempotencyConflictError
+
+
+@dataclass(frozen=True, slots=True)
+class _IdempotentEntry:
+    request_fingerprint: str
+    response: ChatResponse
 
 
 class SessionManager:
@@ -60,7 +68,7 @@ class SessionManager:
         self._last_seen: dict[str, float] = {}
         self._responses: dict[
             str,
-            OrderedDict[str, ChatResponse],
+            OrderedDict[str, _IdempotentEntry],
         ] = {}
         self._lock = RLock()
 
@@ -177,21 +185,31 @@ class SessionManager:
         self,
         session_id: str,
         request_id: str,
+        request_fingerprint: str,
     ) -> ChatResponse | None:
         with self._lock:
             bucket = self._responses.get(session_id)
             if not bucket:
                 return None
-            response = bucket.get(request_id)
-            if response is not None:
-                bucket.move_to_end(request_id)
-                self._touch_locked(session_id)
-            return response
+
+            entry = bucket.get(request_id)
+            if entry is None:
+                return None
+
+            if entry.request_fingerprint != request_fingerprint:
+                raise IdempotencyConflictError(
+                    "request_id reused with a different payload"
+                )
+
+            bucket.move_to_end(request_id)
+            self._touch_locked(session_id)
+            return entry.response
 
     def set_idempotent_response(
         self,
         session_id: str,
         request_id: str,
+        request_fingerprint: str,
         response: ChatResponse,
     ) -> None:
         if self.max_idempotency_entries <= 0:
@@ -202,7 +220,10 @@ class SessionManager:
                 session_id,
                 OrderedDict(),
             )
-            bucket[request_id] = response
+            bucket[request_id] = _IdempotentEntry(
+                request_fingerprint=request_fingerprint,
+                response=response,
+            )
             bucket.move_to_end(request_id)
 
             while len(bucket) > self.max_idempotency_entries:
