@@ -127,10 +127,7 @@
         await this._connectSocket();
         await this._openMicrophone();
         this.active = true;
-        dispatch('state', {
-          state: 'listening',
-          turnId: message.turn_id || null
-        });
+        dispatch('state', { state: 'listening' });
       } catch (error) {
         await this.stop();
         dispatch('error', { stage: 'start', error: String(error) });
@@ -378,7 +375,10 @@
         }
         this.stopPlayback();
         dispatch('barge-in', message);
-        dispatch('state', { state: 'listening' });
+        dispatch('state', {
+          state: 'listening',
+          turnId: message.turn_id || null
+        });
         return;
       }
 
@@ -478,7 +478,10 @@
           turn_id: this.playbackTurnId
         });
         this.stopPlayback();
-        dispatch('state', { state: 'listening' });
+        dispatch('state', {
+          state: 'listening',
+          turnId: turnId || null
+        });
       };
       audio.onerror = () => {
         if (this.playback !== audio) return;
