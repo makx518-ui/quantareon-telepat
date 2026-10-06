@@ -22,6 +22,7 @@ from telepat.api.status import (
     readiness_status,
 )
 from telepat.astro.models import AstroSummary, BirthData
+from telepat.config.preflight import configuration_preflight
 from telepat.config.settings import settings
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
@@ -99,6 +100,11 @@ async def health_providers() -> dict[str, bool]:
 @app.get("/health/provider-contract")
 async def health_provider_contract() -> dict[str, object]:
     return provider_contract()
+
+
+@app.get("/health/config-preflight")
+async def health_config_preflight() -> dict[str, object]:
+    return configuration_preflight()
 
 
 @app.get("/health/readiness")
