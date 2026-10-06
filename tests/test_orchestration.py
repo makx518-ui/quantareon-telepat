@@ -252,3 +252,30 @@ async def test_concurrent_duplicate_request_id_calls_llm_once(
 
     assert calls == 1
     assert first == second
+
+
+
+@pytest.mark.asyncio
+async def test_response_policy_failure_is_not_committed(
+    monkeypatch,
+) -> None:
+    local = Orchestrator()
+
+    async def blank_reply(context, **kwargs):
+        return "   ", "mock"
+
+    monkeypatch.setattr(llm_router, "generate", blank_reply)
+
+    request = ChatRequest(
+        message="Не сохраняй невалидный ответ",
+        user_id="policy-failure-user",
+        session_id="policy-failure-session",
+        language="ru",
+    )
+
+    with pytest.raises(ConversationUnavailableError):
+        await local.handle_chat(request)
+
+    session = session_manager.get("policy-failure-session")
+    assert session is not None
+    assert session.history == []
