@@ -105,6 +105,9 @@
       this.playbackUrl = null;
       this.playbackTurnId = null;
       this.pendingAudioTurnId = null;
+      this.pendingAvatarTurnId = null;
+      this.pendingAvatarMeta = null;
+      this.pendingAvatarMedia = null;
       this.currentTurnId = 0;
       this.cancelledThroughTurnId = 0;
 
@@ -120,6 +123,9 @@
       this.currentTurnId = 0;
       this.cancelledThroughTurnId = 0;
       this.pendingAudioTurnId = null;
+      this.pendingAvatarTurnId = null;
+      this.pendingAvatarMeta = null;
+      this.pendingAvatarMedia = null;
       this.playbackTurnId = null;
       dispatch('state', { state: 'connecting' });
 
@@ -316,11 +322,57 @@
 
     _onMessage(event) {
       if (typeof event.data !== 'string') {
+        if (this.pendingAvatarTurnId !== null) {
+          const turnId = this.pendingAvatarTurnId;
+          const meta = this.pendingAvatarMeta || {};
+          this.pendingAvatarTurnId = null;
+          this.pendingAvatarMeta = null;
+
+          if (turnId && this._isStaleTurn(turnId)) {
+            return;
+          }
+
+          const mediaType = meta.media_type || 'video/mp4';
+          const media = event.data instanceof Blob
+            ? event.data
+            : new Blob([event.data], { type: mediaType });
+
+          this.pendingAvatarMedia = {
+            media: media,
+            turnId: turnId || null,
+            mediaType: mediaType,
+            engine: meta.engine || '',
+            latencyMs: meta.latency_ms
+          };
+          return;
+        }
+
         const turnId = this.pendingAudioTurnId;
         this.pendingAudioTurnId = null;
 
         if (turnId && this._isStaleTurn(turnId)) {
           return;
+        }
+
+        const avatarMedia = this.pendingAvatarMedia;
+        if (
+          avatarMedia &&
+          (
+            !avatarMedia.turnId ||
+            !turnId ||
+            Number(avatarMedia.turnId) === Number(turnId)
+          ) &&
+          !this._isStaleTurn(avatarMedia.turnId)
+        ) {
+          dispatch('avatar-media', {
+            media: avatarMedia.media,
+            turn_id: avatarMedia.turnId,
+            media_type: avatarMedia.mediaType,
+            engine: avatarMedia.engine,
+            latency_ms: avatarMedia.latencyMs,
+            muted: true
+          });
+          this.pendingAvatarMedia = null;
         }
 
         this._playMp3(event.data, turnId || this.currentTurnId || null);
@@ -373,6 +425,12 @@
         ) {
           this.pendingAudioTurnId = null;
         }
+        if (
+          this.pendingAvatarMedia &&
+          this._isStaleTurn(this.pendingAvatarMedia.turnId)
+        ) {
+          this.pendingAvatarMedia = null;
+        }
         this.stopPlayback();
         dispatch('barge-in', message);
         dispatch('state', {
@@ -401,6 +459,31 @@
           intent: message.intent || '',
           turnId: message.turn_id || null
         });
+        return;
+      }
+
+      if (type === 'avatar_start') {
+        const turnId = Number(message.turn_id) || 0;
+        this.pendingAvatarTurnId = turnId || null;
+        this.pendingAvatarMeta = message;
+
+        if (turnId && this._isStaleTurn(turnId)) return;
+        if (turnId) {
+          this.currentTurnId = Math.max(this.currentTurnId, turnId);
+        }
+        dispatch('avatar-start', message);
+        return;
+      }
+
+      if (type === 'avatar_end') {
+        if (message.turn_id && this._isStaleTurn(message.turn_id)) return;
+        dispatch('avatar-end', message);
+        return;
+      }
+
+      if (type === 'avatar_unavailable') {
+        if (message.turn_id && this._isStaleTurn(message.turn_id)) return;
+        dispatch('avatar-unavailable', message);
         return;
       }
 
