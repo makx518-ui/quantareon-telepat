@@ -5,6 +5,7 @@ import os
 from telepat.astro.gemini_interpreter import gemini_astro_interpreter
 from telepat.config.settings import settings
 from telepat.memory.service import memory_adapter
+from telepat.observability.usage import usage_registry
 from telepat.voice.microsoft_tts import microsoft_tts
 from telepat.voice.yandex_tts import yandex_tts
 
@@ -290,6 +291,11 @@ def privacy_status() -> dict[str, object]:
         "session_ttl_seconds": session_manager.ttl_seconds,
         "max_sessions": session_manager.max_sessions,
         "max_history_turns": session_manager.max_history_turns,
+        "usage_retention": {
+            "ttl_seconds": usage_registry.ttl_seconds,
+            "max_sessions": usage_registry.max_sessions,
+            "stores_user_content": False,
+        },
         "memory": {
             "configured": memory_adapter.configured,
             "recall_enabled": recall_enabled,
