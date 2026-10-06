@@ -7,7 +7,7 @@ import httpx
 from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
 
-from .base import ConversationProvider
+from .base import ConversationProvider, ConversationResult, ProviderUsage
 from .prompt import build_chat_messages
 
 
@@ -19,7 +19,7 @@ class GroqConversationProvider(ConversationProvider):
     def configured(self) -> bool:
         return bool(os.getenv("GROQ_API_KEY"))
 
-    async def generate(self, context: ContextPacket) -> str:
+    async def generate(self, context: ContextPacket) -> ConversationResult:
         if not self.configured:
             raise RuntimeError("GROQ_API_KEY is not configured")
 
@@ -51,4 +51,18 @@ class GroqConversationProvider(ConversationProvider):
         text = ((choices[0].get("message") or {}).get("content") or "").strip()
         if not text:
             raise RuntimeError("Groq returned an empty response")
-        return text
+
+        usage = data.get("usage") or {}
+        prompt_details = usage.get("prompt_tokens_details") or {}
+
+        return ConversationResult(
+            text=text,
+            model=model,
+            usage=ProviderUsage(
+                input_tokens=int(usage.get("prompt_tokens") or 0),
+                output_tokens=int(usage.get("completion_tokens") or 0),
+                cached_input_tokens=int(
+                    prompt_details.get("cached_tokens") or 0
+                ),
+            ),
+        )
