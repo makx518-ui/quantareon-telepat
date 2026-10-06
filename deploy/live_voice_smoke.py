@@ -14,6 +14,15 @@ APP_NAME = "quantareon-telepat"
 VOICE_TEST_FUNCTION = "voice_smoke_audio"
 
 
+def _enabled(name: str, default: str = "0") -> bool:
+    return os.getenv(name, default).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def websocket_url(http_base: str) -> str:
     parts = urlsplit(http_base.rstrip("/"))
     scheme = "wss" if parts.scheme == "https" else "ws"
@@ -72,7 +81,11 @@ async def _stream_pcm_realtime(ws, audio: bytes) -> None:
         await asyncio.sleep(len(frame) / bytes_per_second)
 
 
-async def _exercise_real_voice_turn(ws) -> dict[str, object]:
+async def _exercise_real_voice_turn(
+    ws,
+    *,
+    exercise_barge_in: bool = False,
+) -> dict[str, object]:
     pcm = await asyncio.to_thread(_load_voice_test_pcm)
     await _stream_pcm_realtime(ws, pcm)
     await ws.send(json.dumps({"type": "finalize"}))
@@ -138,14 +151,42 @@ async def _exercise_real_voice_turn(ws) -> dict[str, object]:
     assert tts_provider, "TTS provider missing"
     assert audio_bytes > 0, "Voice response contained no binary audio"
 
-    await ws.send(
-        json.dumps(
-            {
-                "type": "playback_end",
-                "turn_id": turn_id,
-            }
+    barge_in = False
+    if exercise_barge_in:
+        # Do not acknowledge playback_end yet. TELEPAT must still consider the
+        # first turn audible when fresh real speech reaches Deepgram.
+        await _stream_pcm_realtime(ws, pcm)
+        await ws.send(json.dumps({"type": "finalize"}))
+
+        async with asyncio.timeout(45):
+            while True:
+                raw = await ws.recv()
+                if isinstance(raw, bytes):
+                    continue
+                event = json.loads(raw)
+                kind = event.get("type")
+                if kind == "error":
+                    raise RuntimeError(
+                        "Voice barge-in failed at "
+                        + str(event.get("stage") or "unknown")
+                    )
+                if kind == "barge_in":
+                    interrupted = event.get("turn_id")
+                    if turn_id is not None and interrupted is not None:
+                        assert int(interrupted) == int(turn_id), event
+                    barge_in = True
+                    break
+
+        assert barge_in, "Real speech did not trigger barge_in"
+    else:
+        await ws.send(
+            json.dumps(
+                {
+                    "type": "playback_end",
+                    "turn_id": turn_id,
+                }
+            )
         )
-    )
 
     return {
         "e2e_turn": True,
@@ -155,6 +196,7 @@ async def _exercise_real_voice_turn(ws) -> dict[str, object]:
         "tts_provider": tts_provider,
         "audio_bytes": audio_bytes,
         "turn_id": turn_id,
+        "barge_in": barge_in,
     }
 
 
@@ -209,7 +251,14 @@ async def _check_once(
             and providers.get("yandex_ermil")
             and conversation_ready
         ):
-            result.update(await _exercise_real_voice_turn(ws))
+            result.update(
+                await _exercise_real_voice_turn(
+                    ws,
+                    exercise_barge_in=_enabled(
+                        "TELEPAT_REAL_BARGE_IN_SMOKE_ENABLED"
+                    ),
+                )
+            )
         else:
             result["e2e_turn"] = False
             result["e2e_skip_reason"] = "required_real_providers_not_configured"
