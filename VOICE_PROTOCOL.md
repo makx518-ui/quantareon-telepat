@@ -116,3 +116,20 @@ or:
 The browser releases microphone/audio resources, emits
 `telepat:session-end`, moves to `stopped`, and may reconnect through the
 runtime facade.
+
+
+## Audio pacing and frame guards
+
+The browser sends PCM16 mono 16 kHz, which is 32,000 bytes of audio per real
+second. The server protects the upstream STT stream from accidental or hostile
+audio flooding:
+
+- `TELEPAT_VOICE_MAX_FRAME_BYTES` — maximum one binary WebSocket frame
+- `TELEPAT_VOICE_MAX_CONTROL_CHARS` — maximum JSON control-frame text size
+- `TELEPAT_VOICE_MAX_REALTIME_FACTOR` — maximum sustained audio speed relative
+  to wall-clock time
+- `TELEPAT_VOICE_AUDIO_BURST_SECONDS` — initial jitter/buffer allowance
+
+Default browser frames are well below these limits. A violation is rejected
+before bytes are forwarded to Deepgram and ends the voice session with
+`frame_too_large`, `control_too_large` or `audio_rate_limit`.
