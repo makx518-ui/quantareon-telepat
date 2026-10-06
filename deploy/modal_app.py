@@ -14,6 +14,11 @@ from deploy.runtime import app, cpu_image, provider_secrets
 )
 @modal.asgi_app()
 def web():
+    from deploy.avatar_remote import build_modal_avatar_adapter
+    from telepat.avatar.service import avatar_service
+
+    avatar_service.set_adapter(build_modal_avatar_adapter())
+
     from telepat.api.main import app as fastapi_app
 
     return fastapi_app
