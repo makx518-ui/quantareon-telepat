@@ -5,6 +5,10 @@ from typing import Protocol, runtime_checkable
 from .models import ChatResponse, SessionState
 
 
+class IdempotencyConflictError(RuntimeError):
+    """One request_id was reused for a different request payload."""
+
+
 @runtime_checkable
 class SessionStore(Protocol):
     """Stable TELEPAT session-state boundary.
@@ -56,12 +60,14 @@ class SessionStore(Protocol):
         self,
         session_id: str,
         request_id: str,
+        request_fingerprint: str,
     ) -> ChatResponse | None: ...
 
     def set_idempotent_response(
         self,
         session_id: str,
         request_id: str,
+        request_fingerprint: str,
         response: ChatResponse,
     ) -> None: ...
 
