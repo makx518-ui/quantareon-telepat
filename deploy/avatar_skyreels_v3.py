@@ -66,10 +66,9 @@ skyreels_image = (
             f"{SKYREELS_REPO}/requirements.txt > /tmp/skyreels-requirements.txt"
         ),
         "pip install -r /tmp/skyreels-requirements.txt",
-        (
-            "pip install flash_attn==2.7.4.post1 "
-            "--no-build-isolation"
-        ),
+        # SkyReels falls back to PyTorch SDPA when flash-attn is absent.
+        # Avoid compiling flash-attn during Modal image build; it can take
+        # tens of minutes and is not required for the first L40S validation.
     )
     .add_local_python_source("telepat", ignore=[])
     .add_local_python_source("deploy", ignore=[])
