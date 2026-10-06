@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -15,6 +16,10 @@ from .tts_router import tts_router
 
 
 logger = logging.getLogger(__name__)
+
+
+class VoiceIdleTimeout(RuntimeError):
+    pass
 
 
 class VoiceSession:
@@ -39,6 +44,12 @@ class VoiceSession:
         self.user_id = user_id
         self.session_id = session_id
         self.language = language or "ru"
+        self.idle_timeout_seconds = float(
+            os.getenv("TELEPAT_VOICE_IDLE_TIMEOUT_SECONDS", "120")
+        )
+        self.max_session_seconds = float(
+            os.getenv("TELEPAT_VOICE_MAX_SESSION_SECONDS", "1800")
+        )
 
         self._transcripts: asyncio.Queue[tuple[str, str]] = asyncio.Queue(
             maxsize=20
@@ -82,10 +93,24 @@ class VoiceSession:
                     "encoding": "linear16",
                     "language": self.language,
                     "stt_language": self.stt.language,
+                    "idle_timeout_seconds": self.idle_timeout_seconds,
+                    "max_session_seconds": self.max_session_seconds,
                 }
             )
-            await self._browser_receive_loop()
 
+            if self.max_session_seconds > 0:
+                try:
+                    await asyncio.wait_for(
+                        self._browser_receive_loop(),
+                        timeout=self.max_session_seconds,
+                    )
+                except asyncio.TimeoutError:
+                    await self._end_by_policy("max_duration")
+            else:
+                await self._browser_receive_loop()
+
+        except VoiceIdleTimeout:
+            await self._end_by_policy("idle_timeout")
         except WebSocketDisconnect:
             pass
         except Exception as exc:
@@ -135,7 +160,17 @@ class VoiceSession:
 
     async def _browser_receive_loop(self) -> None:
         while not self._closed:
-            event = await self.websocket.receive()
+            try:
+                if self.idle_timeout_seconds > 0:
+                    event = await asyncio.wait_for(
+                        self.websocket.receive(),
+                        timeout=self.idle_timeout_seconds,
+                    )
+                else:
+                    event = await self.websocket.receive()
+            except asyncio.TimeoutError as exc:
+                raise VoiceIdleTimeout from exc
+
             kind = event.get("type")
 
             if kind == "websocket.disconnect":
