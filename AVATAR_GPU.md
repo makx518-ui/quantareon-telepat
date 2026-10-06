@@ -87,16 +87,15 @@ Environment overrides are available:
 `AvatarGPUWorker.probe()` reports whether both benchmark assets exist and are
 non-empty before an engine benchmark starts.
 
-`TELEPAT Avatar Asset Seed` prepares this layout without enabling a GPU. It
-copies the temporary TELEPAT source from `quantareon-site/telepat-video-ru.mp4`
-and generates a fixed Ermil MP3 through the already-deployed CPU provider
-runtime, then uploads both files to the persistent Modal Volume. This step has
-no L4 allocation.
+`TELEPAT Avatar Asset Seed` prepares this layout without enabling a GPU. For
+technical infrastructure/engine benchmarking it uses the public MuseTalk demo
+video `data/video/yongen.mp4` and generates a fixed Ermil MP3 through the
+already-deployed CPU provider runtime, then uploads both files to the persistent
+Modal Volume. This step has no L4 allocation.
 
-The existing donor `quantareon-site/telepat-video-ru.mp4` can be used as a
-temporary source during infrastructure checks, but it is **not** automatically
-declared the final production lip-sync source. The final fixed TELEPAT source
-must be chosen explicitly before visual scoring.
+The public demo video is **benchmark-only** and is never the production TELEPAT
+identity. The final fixed TELEPAT portrait/video source from the private site
+assets must be attached before identity/lip-sync visual scoring and site launch.
 
 
 ## GPU preflight

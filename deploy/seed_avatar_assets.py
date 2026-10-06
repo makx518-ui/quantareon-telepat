@@ -13,7 +13,7 @@ AUDIO_FUNCTION = "avatar_benchmark_audio"
 VOLUME_NAME = "quantareon-telepat-assets"
 SOURCE_URL = (
     "https://raw.githubusercontent.com/"
-    "makx518-ui/quantareon-site/main/telepat-video-ru.mp4"
+    "TMElyralab/MuseTalk/main/data/video/yongen.mp4"
 )
 SOURCE_REMOTE = "/benchmark/source.mp4"
 AUDIO_REMOTE = "/benchmark/ermil-benchmark.mp3"
@@ -31,11 +31,11 @@ def _download(url: str, target: Path) -> None:
 
 def _validate_source(path: Path) -> None:
     if path.stat().st_size < 1_000_000:
-        raise RuntimeError("TELEPAT source video is unexpectedly small")
+        raise RuntimeError("Avatar benchmark source video is unexpectedly small")
     with path.open("rb") as fh:
         header = fh.read(64)
     if b"ftyp" not in header:
-        raise RuntimeError("TELEPAT source video is not an MP4 container")
+        raise RuntimeError("Avatar benchmark source video is not an MP4 container")
 
 
 def _generate_audio(target: Path) -> None:

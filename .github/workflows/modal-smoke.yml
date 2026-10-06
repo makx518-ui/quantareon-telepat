@@ -53,6 +53,8 @@ jobs:
           CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
           test -n "$CLEAN_ID"
           test -n "$CLEAN_SECRET"
+          echo "::add-mask::$CLEAN_ID"
+          echo "::add-mask::$CLEAN_SECRET"
           echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
           echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
 
