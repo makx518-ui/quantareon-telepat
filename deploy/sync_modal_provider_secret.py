@@ -8,6 +8,7 @@ import modal
 SECRET_NAME = "quantareon-telepat-secrets"
 
 PROVIDER_KEYS = (
+    # Provider credentials.
     "GEMINI_API_KEY",
     "GROQ_API_KEY",
     "OPENAI_API_KEY",
@@ -20,6 +21,8 @@ PROVIDER_KEYS = (
     "AZURE_SPEECH_REGION",
     "MEMORY_API_URL",
     "MEMORY_API_KEY",
+
+    # Provider/model routing.
     "MEMORY_API_AUTH_HEADER",
     "MEMORY_API_AUTH_SCHEME",
     "TELEPAT_CLAUDE_MODEL",
@@ -29,6 +32,38 @@ PROVIDER_KEYS = (
     "TELEPAT_GROQ_MODEL",
     "TELEPAT_OPENAI_MODEL",
     "TELEPAT_ASTRO_MODEL",
+
+    # Voice identity/tuning.
+    "YANDEX_TTS_VOICE",
+    "YANDEX_TTS_EMOTION",
+    "YANDEX_TTS_SPEED",
+    "AZURE_TTS_VOICE",
+    "AZURE_TTS_STYLE",
+
+    # Privacy and memory policy.
+    "TELEPAT_MEMORY_RECALL_ENABLED",
+    "TELEPAT_MEMORY_STORE_ENABLED",
+
+    # Web/runtime policy.
+    "TELEPAT_ENV",
+    "TELEPAT_CORS_ORIGINS",
+    "TELEPAT_RATE_LIMIT_WINDOW_SECONDS",
+    "TELEPAT_RATE_LIMIT_MAX_ENTRIES",
+    "TELEPAT_CHAT_RPM",
+    "TELEPAT_ASTRO_RPM",
+    "TELEPAT_VOICE_CONNECT_RPM",
+
+    # Session / observability policy.
+    "TELEPAT_METRICS_SAMPLE_LIMIT",
+    "TELEPAT_SESSION_TTL_SECONDS",
+    "TELEPAT_MAX_SESSIONS",
+    "TELEPAT_MAX_HISTORY_TURNS",
+    "TELEPAT_USAGE_MAX_SESSIONS",
+    "TELEPAT_COST_RATES_JSON",
+
+    # Avatar readiness metadata. GPU registration remains a deploy concern.
+    "TELEPAT_AVATAR_ENGINE",
+    "TELEPAT_AVATAR_GPU_ENABLED",
 )
 
 
