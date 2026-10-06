@@ -1,3 +1,4 @@
+import gc
 import asyncio
 
 import pytest
@@ -168,3 +169,18 @@ async def test_different_sessions_can_run_concurrently(monkeypatch) -> None:
     )
 
     assert max_active == 2
+
+
+
+@pytest.mark.asyncio
+async def test_idle_session_turn_lock_is_released() -> None:
+    local = Orchestrator()
+
+    lock = await local._turn_lock("ephemeral-session")
+    assert "ephemeral-session" in local._session_locks
+
+    del lock
+    gc.collect()
+    await asyncio.sleep(0)
+
+    assert "ephemeral-session" not in local._session_locks
