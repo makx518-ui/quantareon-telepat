@@ -23,6 +23,12 @@ from telepat.core.orchestrator import orchestrator
 from telepat.core.session_manager import session_manager
 from telepat.llm.router import ConversationUnavailableError
 from telepat.observability.metrics import runtime_metrics
+from telepat.security.rate_limit import (
+    astro_limit,
+    chat_limit,
+    rate_limiter,
+    voice_connect_limit,
+)
 from telepat.voice.session import VoiceSession
 
 
@@ -110,6 +116,18 @@ async def session_bootstrap(
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
+    identity = request.user_id or request.session_id or "anonymous-chat"
+    if not rate_limiter.allow(
+        "chat",
+        identity,
+        limit=chat_limit(),
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail="chat_rate_limited",
+            headers={"Retry-After": "60"},
+        )
+
     try:
         return await orchestrator.handle_chat(request)
     except ConversationUnavailableError as exc:
@@ -124,6 +142,18 @@ async def prepare_astro_session(
     request: AstroSessionRequest,
 ) -> AstroSessionResponse:
     """Precompute Astrofractal context once while the greeting can play."""
+    identity = request.user_id or request.session_id or "anonymous-astro"
+    if not rate_limiter.allow(
+        "astro",
+        identity,
+        limit=astro_limit(),
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail="astro_rate_limited",
+            headers={"Retry-After": "60"},
+        )
+
     session = session_manager.get_or_create(
         session_id=request.session_id,
         user_id=request.user_id,
@@ -154,6 +184,30 @@ async def prepare_astro_session(
 @app.websocket("/ws/voice")
 async def voice_socket(websocket: WebSocket) -> None:
     params = websocket.query_params
+    identity = (
+        params.get("user_id")
+        or params.get("session_id")
+        or "anonymous-voice"
+    )
+    if not rate_limiter.allow(
+        "voice_connect",
+        identity,
+        limit=voice_connect_limit(),
+    ):
+        await websocket.accept()
+        await websocket.send_json(
+            {
+                "type": "error",
+                "stage": "rate_limit",
+                "message": "voice_connect_rate_limited",
+            }
+        )
+        await websocket.close(
+            code=1008,
+            reason="voice connect rate limited",
+        )
+        return
+
     voice_session = VoiceSession(
         websocket,
         user_id=params.get("user_id") or None,
