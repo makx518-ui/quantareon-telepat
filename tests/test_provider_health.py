@@ -127,3 +127,67 @@ def test_memory_readiness_requires_recall_and_store(monkeypatch) -> None:
         "recall_enabled": True,
         "store_enabled": False,
     }
+
+
+
+def test_production_mode_blocks_wildcard_cors(monkeypatch) -> None:
+    import telepat.api.status as status_module
+
+    class _Settings:
+        env = "production"
+        cors_origins = ("*",)
+        claude_model = ""
+
+        @staticmethod
+        def model_for(provider: str, provider_default: str) -> str:
+            return provider_default
+
+    monkeypatch.setattr(status_module, "settings", _Settings())
+
+    readiness = status_module.production_readiness_status()
+
+    assert "cors_policy" in readiness["blockers"]
+    assert readiness["capabilities"]["cors_policy"] is False
+
+
+def test_development_mode_allows_wildcard_cors(monkeypatch) -> None:
+    import telepat.api.status as status_module
+
+    class _Settings:
+        env = "development"
+        cors_origins = ("*",)
+        claude_model = ""
+
+        @staticmethod
+        def model_for(provider: str, provider_default: str) -> str:
+            return provider_default
+
+    monkeypatch.setattr(status_module, "settings", _Settings())
+
+    readiness = status_module.production_readiness_status()
+
+    assert "cors_policy" not in readiness["blockers"]
+    assert readiness["capabilities"]["cors_policy"] is True
+
+
+def test_missing_cost_rates_is_warning_not_blocker(monkeypatch) -> None:
+    import telepat.api.status as status_module
+
+    monkeypatch.setenv("GEMINI_API_KEY", "configured")
+    monkeypatch.setenv("TELEPAT_COST_RATES_JSON", "{}")
+
+    class _Settings:
+        env = "production"
+        cors_origins = ("https://quantareon.example",)
+        claude_model = ""
+
+        @staticmethod
+        def model_for(provider: str, provider_default: str) -> str:
+            return provider_default
+
+    monkeypatch.setattr(status_module, "settings", _Settings())
+
+    readiness = status_module.production_readiness_status()
+
+    assert "llm_cost_rates_unconfigured" in readiness["warnings"]
+    assert "llm_cost_rates_unconfigured" not in readiness["blockers"]
