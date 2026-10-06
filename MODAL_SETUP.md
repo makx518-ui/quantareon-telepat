@@ -66,11 +66,18 @@ Runs `deploy/sync_modal_provider_secret.py` and merge-updates
 
 ### TELEPAT Modal Smoke
 
-Runs `deploy/smoke.py` inside Modal.
+Calls the deployed `quantareon-telepat::provider_probe` function through
+`deploy/run_provider_probe.py`.
 
-Always checks the deterministic Astrofractal and orchestration kernel. When
-provider credentials exist it also makes real Gemini/LLM/TTS/Deepgram checks
-and fails when a configured required provider is broken.
+The diagnostic logic lives once in
+`telepat/diagnostics/provider_probe.py`. It always checks the deterministic
+Astrofractal and orchestration kernel. When provider credentials exist it also
+makes real Gemini/LLM/TTS/Deepgram checks and fails when a configured required
+provider is broken.
+
+The old command `python -m modal run deploy/smoke.py` remains as a compatibility
+launcher, but it delegates to the same deployed provider probe rather than
+maintaining a second smoke implementation.
 
 ### TELEPAT Modal Deploy
 
