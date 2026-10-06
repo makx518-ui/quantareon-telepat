@@ -51,17 +51,42 @@ def percentile(values: list[float], fraction: float) -> float:
 
 def one_chat(base: str, index: int) -> dict[str, object]:
     started = time.perf_counter()
-    status, data = request_json(
-        "POST",
-        base + "/chat",
-        {
-            "message": f"core load smoke {index}",
-            "language": "ru",
-            "user_id": f"load-user-{index}",
-            "session_id": f"load-session-{index}",
-        },
-        timeout=30,
+    payload = {
+        "message": f"core load smoke {index}",
+        "language": "ru",
+        "user_id": f"load-user-{index}",
+        "session_id": f"load-session-{index}",
+    }
+
+    transport_retries = int(
+        os.getenv("TELEPAT_CORE_LOAD_TRANSPORT_RETRIES", "3")
     )
+    last_error: Exception | None = None
+    status = 0
+    data: dict = {}
+
+    for attempt in range(1, transport_retries + 1):
+        try:
+            status, data = request_json(
+                "POST",
+                base + "/chat",
+                payload,
+                timeout=30,
+            )
+            last_error = None
+            break
+        except (TimeoutError, urllib.error.URLError) as exc:
+            last_error = exc
+            if attempt >= transport_retries:
+                break
+            time.sleep(0.5 * attempt)
+
+    if last_error is not None:
+        raise RuntimeError(
+            f"chat {index} transport failed after "
+            f"{transport_retries} attempts: {type(last_error).__name__}"
+        ) from last_error
+
     elapsed_ms = (time.perf_counter() - started) * 1000
 
     if status != 200:
@@ -109,7 +134,7 @@ def main() -> None:
     )
     workers = min(
         request_count,
-        int(os.getenv("TELEPAT_CORE_LOAD_CONCURRENCY", "6")),
+        int(os.getenv("TELEPAT_CORE_LOAD_CONCURRENCY", "4")),
     )
 
     with concurrent.futures.ThreadPoolExecutor(
