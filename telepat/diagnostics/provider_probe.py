@@ -10,7 +10,7 @@ async def run_provider_probe() -> dict[str, object]:
     from telepat.astro.service import astro_service
     from telepat.core.models import ChatRequest
     from telepat.core.orchestrator import orchestrator
-    from telepat.core.session_manager import session_manager
+    from telepat.core.session_service import session_store
     from telepat.memory.service import memory_adapter
     from telepat.voice.deepgram import DeepgramStreamingSTT
     from telepat.voice.tts_router import tts_router
@@ -75,13 +75,13 @@ async def run_provider_probe() -> dict[str, object]:
         }
 
     try:
-        session = session_manager.get_or_create(
+        session = session_store.get_or_create(
             session_id="telepat-provider-probe",
             user_id="telepat-provider-probe",
             language="ru",
         )
         if summary is not None:
-            session_manager.set_astro_summary(
+            session_store.set_astro_summary(
                 session.session_id,
                 summary.as_context(),
             )
