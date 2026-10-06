@@ -71,3 +71,34 @@ def test_provider_contract_lists_missing_variable_names_only(monkeypatch) -> Non
 
     serialized = str(data)
     assert "secret-value" not in serialized
+
+
+
+def test_production_readiness_lists_runtime_blockers(monkeypatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+    monkeypatch.delenv("YANDEX_SPEECHKIT_API_KEY", raising=False)
+    monkeypatch.delenv("YANDEX_IAM_TOKEN", raising=False)
+    monkeypatch.delenv("YANDEX_FOLDER_ID", raising=False)
+    monkeypatch.delenv("AZURE_SPEECH_KEY", raising=False)
+    monkeypatch.delenv("AZURE_SPEECH_REGION", raising=False)
+    monkeypatch.delenv("MEMORY_API_URL", raising=False)
+    monkeypatch.delenv("TELEPAT_AVATAR_ENGINE", raising=False)
+    monkeypatch.delenv("TELEPAT_AVATAR_GPU_ENABLED", raising=False)
+
+    response = client.get("/health/production-readiness")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["ready"] is False
+    assert "conversation_provider" in data["blockers"]
+    assert "astro_interpreter" in data["blockers"]
+    assert "voice_input" in data["blockers"]
+    assert "voice_output" in data["blockers"]
+    assert "memory" in data["blockers"]
+    assert "avatar_engine" in data["blockers"]
+    assert "avatar_gpu" in data["blockers"]
+    assert data["capabilities"]["astrofractal_engine"] is True
