@@ -1,6 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+import os
+
+
+def _safe_error(exc: Exception) -> dict[str, str]:
+    detail = str(exc)
+    for name, value in os.environ.items():
+        upper = name.upper()
+        if not value or len(value) < 8:
+            continue
+        if any(token in upper for token in ("KEY", "TOKEN", "SECRET")):
+            detail = detail.replace(value, "***")
+    return {
+        "error": type(exc).__name__,
+        "detail": detail[:500],
+    }
 
 
 async def run_provider_probe() -> dict[str, object]:
@@ -66,7 +81,7 @@ async def run_provider_probe() -> dict[str, object]:
         except Exception as exc:
             report["astro_interpreter"] = {
                 "ok": False,
-                "error": type(exc).__name__,
+                **_safe_error(exc),
             }
     else:
         report["astro_interpreter"] = {
@@ -110,7 +125,7 @@ async def run_provider_probe() -> dict[str, object]:
     except Exception as exc:
         report["chat"] = {
             "ok": False,
-            "error": type(exc).__name__,
+            **_safe_error(exc),
         }
 
     try:
@@ -133,7 +148,7 @@ async def run_provider_probe() -> dict[str, object]:
     except Exception as exc:
         report["tts"] = {
             "ok": False,
-            "error": type(exc).__name__,
+            **_safe_error(exc),
         }
 
     if providers.get("memory"):
@@ -150,7 +165,7 @@ async def run_provider_probe() -> dict[str, object]:
                     and getattr(memory_adapter, "store_enabled", False)
                 ),
                 "overall_ok": False,
-                "error": type(exc).__name__,
+                **_safe_error(exc),
             }
     else:
         report["memory"] = {
@@ -180,7 +195,7 @@ async def run_provider_probe() -> dict[str, object]:
         except Exception as exc:
             report["deepgram"] = {
                 "ok": False,
-                "error": type(exc).__name__,
+                **_safe_error(exc),
             }
         finally:
             try:
