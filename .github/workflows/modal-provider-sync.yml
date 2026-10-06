@@ -1,0 +1,108 @@
+name: TELEPAT Modal Provider Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/modal-provider-sync-trigger"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telepat-modal-provider-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync TELEPAT provider secret
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
+
+      YANDEX_SPEECHKIT_API_KEY: ${{ secrets.YANDEX_SPEECHKIT_API_KEY }}
+      YANDEX_IAM_TOKEN: ${{ secrets.YANDEX_IAM_TOKEN }}
+      YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
+
+      AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+      AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
+
+      MEMORY_API_URL: ${{ secrets.MEMORY_API_URL }}
+      MEMORY_API_KEY: ${{ secrets.MEMORY_API_KEY }}
+      MEMORY_API_AUTH_HEADER: ${{ secrets.MEMORY_API_AUTH_HEADER }}
+      MEMORY_API_AUTH_SCHEME: ${{ secrets.MEMORY_API_AUTH_SCHEME }}
+
+      TELEPAT_CLAUDE_MODEL: ${{ secrets.TELEPAT_CLAUDE_MODEL }}
+      TELEPAT_CONVERSATION_PROVIDER: ${{ secrets.TELEPAT_CONVERSATION_PROVIDER }}
+      TELEPAT_CONVERSATION_MODEL: ${{ secrets.TELEPAT_CONVERSATION_MODEL }}
+      TELEPAT_GEMINI_MODEL: ${{ secrets.TELEPAT_GEMINI_MODEL }}
+      TELEPAT_GROQ_MODEL: ${{ secrets.TELEPAT_GROQ_MODEL }}
+      TELEPAT_OPENAI_MODEL: ${{ secrets.TELEPAT_OPENAI_MODEL }}
+      TELEPAT_ASTRO_MODEL: ${{ secrets.TELEPAT_ASTRO_MODEL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Modal CLI
+        run: |
+          python -m pip install --upgrade pip
+          pip install "modal>=1.6,<2"
+
+      - name: Normalize Modal auth
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+          echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
+          echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
+
+      - name: Merge provider configuration into Modal
+        run: python deploy/sync_modal_provider_secret.py
+
+      - name: Verify named secret exists
+        shell: bash
+        run: |
+          python -m modal secret list --json > modal-secrets.json
+          python - <<'PY'
+          import json
+
+          with open("modal-secrets.json", encoding="utf-8") as fh:
+              data = json.load(fh)
+
+          def names(value):
+              found = set()
+              if isinstance(value, dict):
+                  name = value.get("name")
+                  if isinstance(name, str):
+                      found.add(name)
+                  for item in value.values():
+                      found.update(names(item))
+              elif isinstance(value, list):
+                  for item in value:
+                      found.update(names(item))
+              return found
+
+          secret_names = names(data)
+          if "quantareon-telepat-secrets" not in secret_names:
+              raise SystemExit("quantareon-telepat-secrets was not created")
+          print("TELEPAT provider secret container is ready.")
+          PY
