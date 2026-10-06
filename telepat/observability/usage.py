@@ -102,6 +102,9 @@ class UsageRegistry:
         model: str,
         usage: ProviderUsage,
     ) -> float | None:
+        if model == "mock":
+            return 0.0
+
         rates = self._rates.get(model)
         if not rates:
             return None
