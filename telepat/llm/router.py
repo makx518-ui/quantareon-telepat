@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from time import perf_counter
 
 from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
+from telepat.observability.metrics import runtime_metrics
 
 from .base import ConversationProvider
 from .claude import ClaudeConversationProvider
@@ -89,10 +91,23 @@ class LLMRouter:
             ):
                 continue
 
+            started = perf_counter()
             try:
                 text = await candidate.generate(context)
+                runtime_metrics.record(
+                    "llm",
+                    (perf_counter() - started) * 1000,
+                    ok=True,
+                    provider=candidate.name,
+                )
                 return text, candidate.name
             except Exception as exc:
+                runtime_metrics.record(
+                    "llm",
+                    (perf_counter() - started) * 1000,
+                    ok=False,
+                    provider=candidate.name,
+                )
                 logger.warning(
                     "LLM provider %s failed: %s",
                     candidate.name,
