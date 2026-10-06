@@ -20,7 +20,7 @@ Frontend / microphone
 STT (Deepgram)
   |
   v
-Session Manager
+SessionStore
   |
   v
 Orchestrator
@@ -61,7 +61,7 @@ Browser playback / stream
 ### Session start
 
 1. Browser obtains or restores a non-identifying TELEPAT user id.
-2. Session Manager creates a session.
+2. SessionStore creates a session.
 3. Memory Adapter loads known user facts and previous summaries.
 4. If birth data is available, Astrofractal is calculated once.
 5. Gemini creates a compact AstroSummary.
@@ -167,37 +167,61 @@ These layers should usually enrich one prompt/context rather than trigger four s
 
 ---
 
-## 8. Memory
+## 8. Memory and session state
 
-Memory is behind a single interface.
+Long-term user memory and live session state are separate boundaries.
 
-Required methods:
+### MemoryAdapter
+
+The orchestrator uses one stable interface:
 
 ```
-recall_user(user_id)
-recall_session(session_id)
-store_turn(...)
-store_fact(...)
-store_summary(...)
+recall(user_id, message, level)
+store_exchange(user_id, message, response_text)
+probe()
 ```
 
-The existing remote memory service can be attached later without changing the orchestrator.
+The current implementation is the remote QUANTARION Memory API adapter.
+Authentication and privacy switches remain outside the orchestrator.
 
-Browser storage may hold only local UI state and the anonymous TELEPAT user id.
+### SessionStore
+
+Live conversation history, AstroSummary cache, compact recalled memory and
+idempotent chat responses are behind `SessionStore`.
+
+The current implementation is bounded in-process storage. Runtime callers depend
+only on `telepat.core.session_service.session_store`, so a future shared store
+can replace the binding without changing API/orchestration code.
+
+Existing sessions require both matching `session_id` and `user_id` to be
+reused. Browser storage may hold only UI state and the anonymous TELEPAT user id.
 
 ---
 
 ## 9. Voice
 
 ### Input
-Browser audio -> Deepgram streaming STT -> text.
+
+Browser PCM16/16 kHz -> Deepgram Nova-3 streaming STT -> complete utterance.
+
+The voice session handles:
+
+- interim vs final utterance assembly;
+- per-utterance language detection in auto mode;
+- VAD-driven barge-in;
+- upstream STT disconnect cleanup;
+- idle and maximum session lifetime;
+- binary frame/control size limits;
+- wall-clock PCM pacing guards so accelerated audio floods never reach Deepgram.
 
 ### Output
+
 Text -> TTS Router.
 
 Initial providers:
+
 - RU: Yandex SpeechKit / Ermil
-- multilingual: Microsoft neural voice
+- multilingual/fallback: Microsoft Andrew Multilingual
 
 Voice providers implement one common interface.
 
@@ -231,21 +255,32 @@ Modal GPU worker runs only the expensive animation/lip-sync path.
 
 ## 11. Modal deployment
 
-### CPU application
+TELEPAT deliberately uses two independent Modal Apps.
+
+### `quantareon-telepat` — CPU
+
 - FastAPI
-- sessions
+- SessionStore binding
 - orchestration
-- LLM calls
-- Astrofractal calls
-- memory adapter
-- TTS orchestration
+- LLM Router
+- deterministic Astrofractal + Gemini interpreter
+- MemoryAdapter
+- Deepgram/TTS orchestration
+- deployed provider diagnostics
 
-### GPU application
-- avatar model
-- lip sync
-- optional facial animation
+The named Secret `quantareon-telepat-secrets` is attached unconditionally so
+Modal's function dependency graph is identical during local deployment and
+remote hydration.
 
-CPU and GPU functions live in the same Modal project but scale independently.
+### `quantareon-telepat-avatar` — GPU
+
+- optional L4 worker
+- persistent benchmark/assets Volume
+- lip-sync engine behind AvatarAdapter
+- hardware/assets preflight
+- benchmark harness
+
+GPU deployment is opt-in and cannot change or block the CPU app object graph.
 
 ---
 
@@ -259,3 +294,16 @@ The source projects remain untouched.
 - Dream Oracle archive
 
 TELEPAT copies only proven modules or wraps them through adapters. No legacy monolith is imported wholesale.
+
+
+## 13. Idempotent chat requests
+
+HTTP chat requests may include `request_id`.
+
+Within one session:
+
+- the same `request_id` + same normalized payload returns the cached response;
+- no second LLM call or second history write occurs;
+- reusing the same `request_id` for a different message/language/metadata
+  returns HTTP 409 `idempotency_key_conflict`;
+- the idempotency cache is bounded LRU and expires with the session.
