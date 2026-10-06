@@ -4,12 +4,14 @@ import asyncio
 from collections.abc import Coroutine
 from dataclasses import dataclass, field
 from typing import Any
+from time import perf_counter
 
 from telepat.avatar.director import select_speaking_state
 from telepat.avatar.state_selector import select_avatar_state
 from telepat.llm.router import llm_router
 from telepat.memory.compact import compact_memory
 from telepat.memory.service import memory_adapter
+from telepat.observability.metrics import runtime_metrics
 
 from .context_builder import build_context_packet, classify_intent
 from .models import ChatRequest, ChatResponse
@@ -49,6 +51,7 @@ class Orchestrator:
         )
 
     async def handle_chat(self, request: ChatRequest) -> ChatResponse:
+        started = perf_counter()
         session = session_manager.get_or_create(
             session_id=request.session_id,
             user_id=request.user_id,
@@ -79,7 +82,15 @@ class Orchestrator:
             plan,
         )
 
-        reply, provider_name = await llm_router.generate(context)
+        try:
+            reply, provider_name = await llm_router.generate(context)
+        except Exception:
+            runtime_metrics.record(
+                "turn_total",
+                (perf_counter() - started) * 1000,
+                ok=False,
+            )
+            raise
 
         # Commit the exchange only after a real response succeeds. This keeps
         # retries idempotent at the session-history level when a provider is
@@ -110,6 +121,13 @@ class Orchestrator:
             user_message=request.message,
             reply=reply,
             session_id=session.session_id,
+        )
+
+        runtime_metrics.record(
+            "turn_total",
+            (perf_counter() - started) * 1000,
+            ok=True,
+            provider=provider_name,
         )
 
         return ChatResponse(
