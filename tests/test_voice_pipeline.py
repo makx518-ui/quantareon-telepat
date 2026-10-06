@@ -652,3 +652,27 @@ async def test_successful_voice_turn_uses_one_turn_id_end_to_end(
         f"voice-{session._connection_id}-4"
     ]
     assert session._playback_turn_id == 4
+
+
+
+class _PreAcceptDisconnectWebSocket(_FakeVoiceWebSocket):
+    async def accept(self) -> None:
+        raise RuntimeError(
+            'Expected ASGI message "websocket.connect", '
+            "but got 'websocket.disconnect'"
+        )
+
+
+@pytest.mark.asyncio
+async def test_voice_pre_accept_disconnect_is_clean() -> None:
+    websocket = _PreAcceptDisconnectWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+
+    await session.run()
+
+    assert websocket.messages == []
