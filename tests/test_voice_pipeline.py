@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+from telepat.core.models import ChatResponse
 from telepat.llm.router import ConversationUnavailableError, llm_router
 from telepat.voice.deepgram import DeepgramStreamingSTT, normalize_deepgram_language
 from telepat.voice.microsoft_tts import microsoft_tts
@@ -250,10 +251,14 @@ def test_ru_tts_falls_back_to_microsoft(monkeypatch) -> None:
 class _FakeVoiceWebSocket:
     def __init__(self) -> None:
         self.messages: list[dict] = []
+        self.binary: list[bytes] = []
         self.closed: tuple[int, str] | None = None
 
     async def send_json(self, payload: dict) -> None:
         self.messages.append(payload)
+
+    async def send_bytes(self, payload: bytes) -> None:
+        self.binary.append(payload)
 
     async def close(
         self,
@@ -569,3 +574,79 @@ async def test_voice_policy_end_supports_policy_close_code() -> None:
         "reason": "audio_rate_limit",
     }
     assert websocket.closed == (1008, "audio_rate_limit")
+
+
+
+@pytest.mark.asyncio
+async def test_successful_voice_turn_uses_one_turn_id_end_to_end(
+    monkeypatch,
+) -> None:
+    captured_request_ids: list[str] = []
+
+    async def fake_chat(request):
+        captured_request_ids.append(request.request_id or "")
+        return ChatResponse(
+            reply="Ответ",
+            request_id=request.request_id,
+            user_id=request.user_id or "u",
+            session_id=request.session_id or "s",
+            intent="casual_conversation",
+            avatar_state="soft_smile",
+            provider="mock",
+        )
+
+    async def fake_tts(text: str, *, language: str):
+        return b"mp3", "fake-tts"
+
+    monkeypatch.setattr(
+        "telepat.voice.session.orchestrator.handle_chat",
+        fake_chat,
+    )
+    monkeypatch.setattr(
+        "telepat.voice.session.tts_router.synthesize",
+        fake_tts,
+    )
+
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session._active_turn_id = 4
+
+    await session._respond(
+        "Привет",
+        turn_language="ru",
+        turn_id=4,
+    )
+
+    turn_messages = [
+        message
+        for message in websocket.messages
+        if message.get("type") in {
+            "transcript",
+            "state",
+            "reply",
+            "audio_start",
+            "audio_end",
+        }
+    ]
+
+    assert [message["type"] for message in turn_messages] == [
+        "transcript",
+        "state",
+        "reply",
+        "audio_start",
+        "audio_end",
+    ]
+    assert all(
+        message.get("turn_id") == 4
+        for message in turn_messages
+    )
+    assert websocket.binary == [b"mp3"]
+    assert captured_request_ids == [
+        f"voice-{session._connection_id}-4"
+    ]
+    assert session._playback_turn_id == 4
