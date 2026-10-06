@@ -32,6 +32,19 @@ def _extract_response_text(data: dict[str, Any]) -> str:
     return "\n".join(parts).strip()
 
 
+def _normalize_openai_usage(usage: dict[str, Any]) -> ProviderUsage:
+    input_details = usage.get("input_tokens_details") or {}
+    total_input = int(usage.get("input_tokens") or 0)
+    cached_input = int(input_details.get("cached_tokens") or 0)
+    cached_input = min(max(0, cached_input), max(0, total_input))
+
+    return ProviderUsage(
+        input_tokens=max(0, total_input - cached_input),
+        output_tokens=int(usage.get("output_tokens") or 0),
+        cached_input_tokens=cached_input,
+    )
+
+
 class OpenAIConversationProvider(ConversationProvider):
     name = "openai"
     endpoint = "https://api.openai.com/v1/responses"
@@ -71,18 +84,9 @@ class OpenAIConversationProvider(ConversationProvider):
             raise RuntimeError("OpenAI returned an empty response")
 
         usage = data.get("usage") or {}
-        input_details = usage.get("input_tokens_details") or {}
-
-        total_input = int(usage.get("input_tokens") or 0)
-        cached_input = int(input_details.get("cached_tokens") or 0)
-        cached_input = min(max(0, cached_input), max(0, total_input))
 
         return ConversationResult(
             text=text,
             model=model,
-            usage=ProviderUsage(
-                input_tokens=max(0, total_input - cached_input),
-                output_tokens=int(usage.get("output_tokens") or 0),
-                cached_input_tokens=cached_input,
-            ),
+            usage=_normalize_openai_usage(usage),
         )
