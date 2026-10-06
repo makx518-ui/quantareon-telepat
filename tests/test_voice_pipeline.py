@@ -6,7 +6,7 @@ import pytest
 from telepat.llm.router import ConversationUnavailableError, llm_router
 from telepat.voice.deepgram import DeepgramStreamingSTT, normalize_deepgram_language
 from telepat.voice.microsoft_tts import microsoft_tts
-from telepat.voice.session import VoiceSession
+from telepat.voice.session import VoiceIdleTimeout, VoiceSession
 from telepat.voice.tts_router import TTSRouter
 from telepat.voice.yandex_tts import yandex_tts
 
@@ -394,3 +394,44 @@ async def test_voice_reports_llm_provider_outage(monkeypatch) -> None:
         "stage": "llm",
         "message": "conversation_provider_unavailable",
     }
+
+
+
+class _IdleVoiceWebSocket(_FakeVoiceWebSocket):
+    async def receive(self):
+        await asyncio.sleep(60)
+        return {"type": "websocket.receive"}
+
+
+@pytest.mark.asyncio
+async def test_voice_idle_timeout_raises_policy_signal() -> None:
+    websocket = _IdleVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session.idle_timeout_seconds = 0.01
+
+    with pytest.raises(VoiceIdleTimeout):
+        await session._browser_receive_loop()
+
+
+@pytest.mark.asyncio
+async def test_voice_policy_end_sends_clean_session_end() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+
+    await session._end_by_policy("max_duration")
+
+    assert websocket.messages[-1] == {
+        "type": "session_end",
+        "reason": "max_duration",
+    }
+    assert websocket.closed == (1000, "max_duration")
