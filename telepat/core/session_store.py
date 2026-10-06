@@ -13,6 +13,7 @@ class SessionStore(Protocol):
     store can replace it later without changing API/orchestration callers.
     """
 
+    kind: str
     ttl_seconds: float
     max_sessions: int
     max_history_turns: int
