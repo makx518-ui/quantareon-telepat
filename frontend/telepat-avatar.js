@@ -45,12 +45,21 @@
       this.currentState = '';
       this.liveMode = false;
       this.liveUrl = null;
+      this.currentTurnId = 0;
+      this.cancelledThroughTurnId = 0;
+      this.liveTurnId = null;
 
       this.video.playsInline = true;
       this.video.preload = 'auto';
 
       this._onState = (event) => {
         const detail = (event && event.detail) || {};
+        const turnId = Number(detail.turnId || detail.turn_id) || 0;
+        if (turnId && this._isStaleTurn(turnId)) return;
+        if (turnId) {
+          this.currentTurnId = Math.max(this.currentTurnId, turnId);
+        }
+
         const transportState = detail.state || this.fallbackState;
 
         // During speech keep the semantic pose selected by the orchestrator
@@ -67,11 +76,39 @@
         this.setState(transportState);
       };
 
+      this._onBargeIn = (event) => {
+        const detail = (event && event.detail) || {};
+        const turnId = Number(detail.turn_id || detail.turnId) || 0;
+        if (turnId) {
+          this.cancelledThroughTurnId = Math.max(
+            this.cancelledThroughTurnId,
+            turnId
+          );
+        }
+
+        if (
+          this.liveMode &&
+          this.liveTurnId &&
+          this._isStaleTurn(this.liveTurnId)
+        ) {
+          try {
+            this.video.pause();
+            this.video.currentTime = 0;
+          } catch (_) {}
+          this.liveMode = false;
+          this.liveTurnId = null;
+          this._releaseLiveUrl();
+          this.setState('listening');
+        }
+      };
+
       global.addEventListener('telepat:state', this._onState);
+      global.addEventListener('telepat:barge-in', this._onBargeIn);
     }
 
     destroy() {
       global.removeEventListener('telepat:state', this._onState);
+      global.removeEventListener('telepat:barge-in', this._onBargeIn);
       this._releaseLiveUrl();
     }
 
@@ -109,8 +146,29 @@
       }
     }
 
+    _isStaleTurn(turnId) {
+      const id = Number(turnId) || 0;
+      if (!id) return false;
+      return (
+        id <= this.cancelledThroughTurnId ||
+        (this.currentTurnId > 0 && id < this.currentTurnId)
+      );
+    }
+
     async setLiveMedia(media, options) {
       options = options || {};
+      const turnId = Number(
+        options.turnId || options.turn_id
+      ) || 0;
+
+      if (turnId && this._isStaleTurn(turnId)) {
+        return false;
+      }
+      if (turnId) {
+        this.currentTurnId = Math.max(this.currentTurnId, turnId);
+      }
+
+      this.video.onended = null;
       this._releaseLiveUrl();
 
       let src;
@@ -129,25 +187,34 @@
       if (!src) return;
 
       this.liveMode = true;
+      this.liveTurnId = turnId || null;
       this.currentState = 'speaking';
       this.video.loop = false;
       this.video.muted = options.muted !== undefined ? options.muted : false;
       this.video.src = src;
       this.video.load();
 
+      const expectedTurnId = this.liveTurnId;
       this.video.onended = () => {
+        if (this.liveTurnId !== expectedTurnId) return;
         this.liveMode = false;
+        this.liveTurnId = null;
         this.setState('listening');
       };
 
       try {
         await this.video.play();
-        dispatch('live-start', {});
+        dispatch('live-start', {
+          turnId: this.liveTurnId
+        });
+        return true;
       } catch (error) {
         dispatch('error', {
           state: 'speaking',
+          turnId: this.liveTurnId,
           error: String(error)
         });
+        return false;
       }
     }
 
