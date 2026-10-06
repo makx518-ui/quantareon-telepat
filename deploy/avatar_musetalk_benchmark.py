@@ -30,6 +30,7 @@ musetalk_image = (
         "libgl1",
         "libglib2.0-0",
         "build-essential",
+        "curl",
     )
     .run_commands(
         "git clone https://github.com/TMElyralab/MuseTalk.git /opt/MuseTalk",
@@ -69,7 +70,7 @@ musetalk_image = (
             "huggingface-cli download ByteDance/LatentSync "
             "--local-dir models/syncnet "
             "--include 'latentsync_syncnet.pt' && "
-            "gdown --id 154JgKpzCPW82qINcVieuPH3fZ2e0P812 "
+            "gdown 'https://drive.google.com/uc?id=154JgKpzCPW82qINcVieuPH3fZ2e0P812' "
             "-O models/face-parse-bisent/79999_iter.pth && "
             "curl -L https://download.pytorch.org/models/resnet18-5c106cde.pth "
             "-o models/face-parse-bisent/resnet18-5c106cde.pth"
