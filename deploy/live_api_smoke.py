@@ -79,6 +79,14 @@ def main() -> None:
     assert "providers" in contract
     assert "capabilities" in contract
 
+    status, production = request_json(
+        "GET",
+        base + "/health/production-readiness",
+    )
+    assert status == 200, (status, production)
+    assert isinstance(production["ready"], bool)
+    assert isinstance(production["blockers"], list)
+
     birth = {
         "year": 2000,
         "month": 1,
@@ -176,6 +184,10 @@ def main() -> None:
             {
                 "health": health,
                 "providers": providers,
+                "production": {
+                    "ready": production["ready"],
+                    "blockers": production["blockers"],
+                },
                 "readiness": {
                     "core_ready": readiness["core_ready"],
                     "conversation_ready": readiness["conversation_ready"],
