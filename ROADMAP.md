@@ -134,7 +134,7 @@ Goal: production TELEPAT experience in `quantareon-site`.
 - [x] provider configuration contract
 - [x] production readiness blocker report
 - [ ] privacy/data-retention controls
-- [ ] cost counters per session
+- [x] per-session token usage counters and model-priced cost accounting
 - [ ] load tests
 
 ## Immediate execution order
