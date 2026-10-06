@@ -86,6 +86,16 @@ The old command `python -m modal run deploy/smoke.py` remains as a compatibility
 launcher, but it delegates to the same deployed provider probe rather than
 maintaining a second smoke implementation.
 
+### TELEPAT Memory Deploy
+
+Deploys the independent `quantareon-telepat-memory` app, provisions a
+high-entropy Bearer key into Modal Secrets, verifies a real store/recall round
+trip, configures the CPU Memory provider, redeploys TELEPAT, and runs the
+provider probe.
+
+The Memory service persists SQLite on the `quantareon-telepat-memory` Modal
+Volume. See [MEMORY_SERVICE.md](MEMORY_SERVICE.md).
+
 ### TELEPAT Modal Deploy
 
 Deploys the FastAPI application and then runs:
@@ -141,7 +151,14 @@ which looks up the deployed `AvatarGPUWorker` with Modal `Cls.from_name` and
 checks real GPU availability/assets without hard-coding a lip-sync engine.
 
 Enable the flag only when L4 access/billing is ready and the avatar benchmark
-starts.
+starts. Current L4 preflight reaches Modal successfully but is blocked by the
+account requirement to add a payment method for L4 GPU functions.
+
+Prepared benchmark apps:
+
+- MuseTalk 1.5 — pinned reproducible candidate
+- LatentSync 1.6 — pinned reproducible candidate
+
 
 
 ## Modal object graph rule
