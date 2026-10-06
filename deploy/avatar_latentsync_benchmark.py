@@ -34,7 +34,7 @@ latentsync_image = (
     .run_commands(
         "git clone https://github.com/bytedance/LatentSync.git /opt/LatentSync",
         f"cd /opt/LatentSync && git checkout {LATENTSYNC_COMMIT}",
-        "pip install -r /opt/LatentSync/requirements.txt",
+        "CC=gcc CXX=g++ pip install -r /opt/LatentSync/requirements.txt",
         (
             "cd /opt/LatentSync && "
             "huggingface-cli download ByteDance/LatentSync-1.6 "
