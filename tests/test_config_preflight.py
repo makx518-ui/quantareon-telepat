@@ -197,3 +197,22 @@ def test_config_preflight_rejects_disabled_voice_pacing_guard(
         "telepat_voice_max_realtime_factor_invalid"
         in report["errors"]
     )
+
+
+
+def test_config_preflight_rejects_invalid_reply_limit(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        preflight_module,
+        "settings",
+        _Settings(),
+    )
+    monkeypatch.setenv("TELEPAT_MEMORY_RECALL_ENABLED", "0")
+    monkeypatch.setenv("TELEPAT_MEMORY_STORE_ENABLED", "0")
+    monkeypatch.setenv("TELEPAT_MAX_REPLY_CHARS", "0")
+
+    report = configuration_preflight()
+
+    assert report["ok"] is False
+    assert "telepat_max_reply_chars_invalid" in report["errors"]
