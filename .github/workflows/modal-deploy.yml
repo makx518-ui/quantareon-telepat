@@ -28,7 +28,7 @@ jobs:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       TELEPAT_ATTACH_PROVIDER_SECRET: "0"
-      TELEPAT_REGISTER_GPU: "0"
+      TELEPAT_REGISTER_GPU: ${{ secrets.TELEPAT_AVATAR_GPU_ENABLED || '0' }}
       TELEPAT_BUILD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
