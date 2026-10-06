@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from telepat.api.main import app
 from telepat.llm.router import ConversationUnavailableError, llm_router
+from telepat.security.rate_limit import rate_limiter
 
 
 client = TestClient(app)
@@ -50,3 +51,27 @@ def test_chat_returns_503_when_real_llm_is_unavailable(monkeypatch) -> None:
 
     assert response.status_code == 503
     assert response.json()["detail"] == "conversation_provider_unavailable"
+
+
+
+def test_chat_rate_limit_returns_429(monkeypatch) -> None:
+    import telepat.api.main as api_main
+
+    rate_limiter.reset()
+    monkeypatch.setattr(api_main, "chat_limit", lambda: 1)
+
+    payload = {
+        "message": "Привет",
+        "language": "ru",
+        "user_id": "rate-limit-user",
+    }
+
+    first = client.post("/chat", json=payload)
+    second = client.post("/chat", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["detail"] == "chat_rate_limited"
+    assert second.headers["retry-after"] == "60"
+
+    rate_limiter.reset()
