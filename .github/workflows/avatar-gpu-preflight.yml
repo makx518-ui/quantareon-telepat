@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: telepat-avatar-gpu-preflight
+  group: telepat-avatar-gpu-preflight-v2
   cancel-in-progress: true
 
 jobs:
