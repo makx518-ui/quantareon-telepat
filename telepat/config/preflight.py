@@ -210,6 +210,7 @@ def configuration_preflight() -> dict[str, Any]:
         ("TELEPAT_SESSION_TTL_SECONDS", "21600"),
         ("TELEPAT_MAX_SESSIONS", "1000"),
         ("TELEPAT_MAX_HISTORY_TURNS", "60"),
+        ("TELEPAT_MAX_REPLY_CHARS", "6000"),
         ("TELEPAT_IDEMPOTENCY_ENTRIES", "32"),
     ):
         ok, value = _positive_number(name, default=default)
