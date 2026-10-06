@@ -134,17 +134,43 @@ def test_idempotency_cache_is_bounded_lru() -> None:
             intent="casual_conversation",
         )
 
-    manager.set_idempotent_response("idem", "a", response("a"))
-    manager.set_idempotent_response("idem", "b", response("b"))
+    manager.set_idempotent_response(
+        "idem", "a", "fp-a", response("a")
+    )
+    manager.set_idempotent_response(
+        "idem", "b", "fp-b", response("b")
+    )
 
     # Touch "a" so "b" becomes least-recently-used.
-    assert manager.get_idempotent_response("idem", "a") is not None
+    assert (
+        manager.get_idempotent_response(
+            "idem", "a", "fp-a"
+        )
+        is not None
+    )
 
-    manager.set_idempotent_response("idem", "c", response("c"))
+    manager.set_idempotent_response(
+        "idem", "c", "fp-c", response("c")
+    )
 
-    assert manager.get_idempotent_response("idem", "a") is not None
-    assert manager.get_idempotent_response("idem", "b") is None
-    assert manager.get_idempotent_response("idem", "c") is not None
+    assert (
+        manager.get_idempotent_response(
+            "idem", "a", "fp-a"
+        )
+        is not None
+    )
+    assert (
+        manager.get_idempotent_response(
+            "idem", "b", "fp-b"
+        )
+        is None
+    )
+    assert (
+        manager.get_idempotent_response(
+            "idem", "c", "fp-c"
+        )
+        is not None
+    )
 
 
 
@@ -170,3 +196,46 @@ def test_session_id_alone_cannot_reuse_existing_session() -> None:
     assert first.user_id == "owner-user"
     assert second.session_id != first.session_id
     assert second.user_id != first.user_id
+
+
+
+def test_idempotency_key_rejects_different_payload_fingerprint() -> None:
+    from telepat.core.models import ChatResponse
+    from telepat.core.session_store import IdempotencyConflictError
+
+    manager = SessionManager(
+        ttl_seconds=100,
+        max_sessions=10,
+        max_history_turns=10,
+        max_idempotency_entries=2,
+    )
+    session = manager.get_or_create(
+        session_id="idem-conflict",
+        user_id="u",
+        language="ru",
+    )
+    response = ChatResponse(
+        reply="cached",
+        request_id="request-1",
+        user_id=session.user_id,
+        session_id=session.session_id,
+        intent="casual_conversation",
+    )
+
+    manager.set_idempotent_response(
+        session.session_id,
+        "request-1",
+        "fingerprint-a",
+        response,
+    )
+
+    try:
+        manager.get_idempotent_response(
+            session.session_id,
+            "request-1",
+            "fingerprint-b",
+        )
+    except IdempotencyConflictError:
+        pass
+    else:
+        raise AssertionError("expected IdempotencyConflictError")
