@@ -48,7 +48,11 @@ def readiness_status() -> dict[str, object]:
     )
     voice_input_ready = bool(providers["deepgram"])
     astro_interpreter_ready = bool(providers["astro_gemini"])
-    memory_ready = bool(providers["memory"])
+    memory_ready = bool(
+        providers["memory"]
+        and getattr(memory_adapter, "recall_enabled", False)
+        and getattr(memory_adapter, "store_enabled", False)
+    )
 
     return {
         "core_ready": True,
@@ -156,6 +160,19 @@ def provider_contract() -> dict[str, object]:
         },
         "memory": {
             "ready": providers["memory"],
+            "operational": bool(
+                providers["memory"]
+                and getattr(memory_adapter, "recall_enabled", False)
+                and getattr(memory_adapter, "store_enabled", False)
+            ),
+            "controls": {
+                "recall_enabled": bool(
+                    getattr(memory_adapter, "recall_enabled", False)
+                ),
+                "store_enabled": bool(
+                    getattr(memory_adapter, "store_enabled", False)
+                ),
+            },
             "missing": (
                 []
                 if providers["memory"]
@@ -200,7 +217,7 @@ def provider_contract() -> dict[str, object]:
                 "candidates": tts_candidates,
             },
             "memory": {
-                "ready": bool(contract["memory"]["ready"]),
+                "ready": bool(contract["memory"]["operational"]),
                 "provider": "remote-memory",
             },
         },
