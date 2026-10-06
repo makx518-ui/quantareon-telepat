@@ -4,13 +4,17 @@ import os
 
 import modal
 
-from deploy.runtime import app, assets_volume, gpu_base_image
+from deploy.runtime import assets_volume, gpu_base_image, provider_secrets
 from telepat.avatar.assets import avatar_asset_status
 from telepat.avatar.gpu_probe import gpu_status
 
 
-@app.cls(
+avatar_app = modal.App("quantareon-telepat-avatar")
+
+
+@avatar_app.cls(
     image=gpu_base_image,
+    secrets=provider_secrets,
     gpu="L4",
     memory=8192,
     timeout=300,
