@@ -12,13 +12,13 @@ permissions:
 
 concurrency:
   group: telepat-modal-smoke
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   smoke:
     name: Real provider smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
 
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
@@ -82,4 +82,4 @@ jobs:
           CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
           CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
           MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
-            python -m modal run deploy/smoke.py
+            timeout 300s python -m modal run deploy/smoke.py
