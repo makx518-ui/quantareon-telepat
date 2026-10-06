@@ -1,0 +1,56 @@
+name: TELEPAT Voice Barge-In Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/voice-barge-in-trigger"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telepat-real-barge-in-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Real Deepgram playback interruption
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      TELEPAT_ENDPOINT: https://makx518--quantareon-telepat-web.modal.run
+      TELEPAT_BUILD_SHA: barge-in-${{ github.sha }}
+      TELEPAT_REAL_BARGE_IN_SMOKE_ENABLED: "1"
+      TELEPAT_SMOKE_TRANSPORT_RETRIES: "2"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install smoke tools
+        run: pip install "modal>=1.6,<2" "websockets>=12,<16"
+
+      - name: Normalize Modal auth
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+          echo "::add-mask::$CLEAN_ID"
+          echo "::add-mask::$CLEAN_SECRET"
+          echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
+          echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
+
+      - name: Run real barge-in smoke
+        run: timeout 240s python deploy/live_voice_smoke.py
