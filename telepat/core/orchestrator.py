@@ -32,6 +32,16 @@ class Orchestrator:
         init=False,
         repr=False,
     )
+    _session_locks: dict[str, asyncio.Lock] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
+    _session_locks_guard: asyncio.Lock = field(
+        default_factory=asyncio.Lock,
+        init=False,
+        repr=False,
+    )
 
     def _spawn_background(
         self,
@@ -50,13 +60,31 @@ class Orchestrator:
             return_exceptions=True,
         )
 
+    async def _turn_lock(self, session_id: str) -> asyncio.Lock:
+        async with self._session_locks_guard:
+            lock = self._session_locks.get(session_id)
+            if lock is None:
+                lock = asyncio.Lock()
+                self._session_locks[session_id] = lock
+            return lock
+
     async def handle_chat(self, request: ChatRequest) -> ChatResponse:
-        started = perf_counter()
         session = session_manager.get_or_create(
             session_id=request.session_id,
             user_id=request.user_id,
             language=request.language,
         )
+        lock = await self._turn_lock(session.session_id)
+
+        async with lock:
+            return await self._handle_chat_locked(session, request)
+
+    async def _handle_chat_locked(
+        self,
+        session,
+        request: ChatRequest,
+    ) -> ChatResponse:
+        started = perf_counter()
 
         intent = classify_intent(
             request.message,
