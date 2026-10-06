@@ -1,4 +1,4 @@
-from telepat.config.settings import Settings
+from telepat.config.settings import Settings, _origins
 
 
 def test_generic_model_override_applies_only_to_selected_provider() -> None:
@@ -31,3 +31,16 @@ def test_auto_mode_never_leaks_generic_model_between_providers() -> None:
     assert cfg.model_for("groq", cfg.groq_model) == "groq-default"
     assert cfg.model_for("openai", cfg.openai_model) == "gpt-default"
     assert cfg.model_for("claude", cfg.claude_model) == "claude-default"
+
+
+
+def test_cors_origin_parser_preserves_urls(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "TEST_CORS",
+        "https://quantareon.com/, https://preview.example",
+    )
+
+    assert _origins("TEST_CORS", "*") == (
+        "https://quantareon.com",
+        "https://preview.example",
+    )
