@@ -84,3 +84,26 @@ def test_mock_usage_is_zero_cost_and_fully_priced() -> None:
     assert snapshot["fully_priced"] is True
     assert snapshot["priced_calls"] == 1
     assert snapshot["priced_cost_usd"] == 0.0
+
+
+
+def test_usage_registry_expires_with_retention_ttl() -> None:
+    now = [0.0]
+    registry = UsageRegistry(
+        max_sessions=100,
+        rates={},
+        ttl_seconds=10,
+        clock=lambda: now[0],
+    )
+
+    registry.record(
+        "session-a",
+        provider="mock",
+        model="mock",
+        usage=ProviderUsage(),
+    )
+    assert registry.snapshot("session-a") is not None
+
+    now[0] = 11.0
+
+    assert registry.snapshot("session-a") is None
