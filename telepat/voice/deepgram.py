@@ -290,6 +290,27 @@ class DeepgramStreamingSTT:
         if speech_final:
             await self._flush_final_segments()
 
+    @staticmethod
+    def _detect_result_language(best: dict) -> str | None:
+        languages = [
+            str(item).strip()
+            for item in (best.get("languages") or [])
+            if str(item).strip()
+        ]
+        if languages:
+            return languages[0]
+
+        word_languages = [
+            str(word.get("language") or "").strip()
+            for word in (best.get("words") or [])
+            if isinstance(word, dict)
+            and str(word.get("language") or "").strip()
+        ]
+        if not word_languages:
+            return None
+
+        return Counter(word_languages).most_common(1)[0][0]
+
     async def _flush_final_segments(self) -> None:
         if not self._final_segments:
             return
