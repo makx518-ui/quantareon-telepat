@@ -49,13 +49,19 @@ def percentile(values: list[float], fraction: float) -> float:
     return ordered[index]
 
 
-def one_chat(base: str, index: int) -> dict[str, object]:
+def one_chat(
+    base: str,
+    index: int,
+    *,
+    expect_real_provider: bool = False,
+) -> dict[str, object]:
     started = time.perf_counter()
     payload = {
         "message": f"core load smoke {index}",
         "language": "ru",
         "user_id": f"load-user-{index}",
         "session_id": f"load-session-{index}",
+        "request_id": f"load-request-{index}",
     }
 
     transport_retries = int(
@@ -95,9 +101,15 @@ def one_chat(base: str, index: int) -> dict[str, object]:
         )
     if not data.get("reply"):
         raise RuntimeError(f"chat {index} returned no reply")
-    if data.get("provider") != "mock":
+    provider = str(data.get("provider") or "")
+    if expect_real_provider:
+        if not provider or provider == "mock":
+            raise RuntimeError(
+                "real-provider load smoke unexpectedly used mock"
+            )
+    elif provider != "mock":
         raise RuntimeError(
-            f"core load smoke expected mock, got {data.get('provider')}"
+            f"core load smoke expected mock, got {provider}"
         )
 
     return {
@@ -141,30 +153,55 @@ def main() -> None:
             f"readiness failed: status={status} payload={readiness}"
         )
 
-    if readiness.get("conversation_ready"):
+    real_provider_ready = bool(
+        readiness.get("conversation_ready")
+    )
+    real_load_enabled = os.getenv(
+        "TELEPAT_REAL_PROVIDER_LOAD_ENABLED",
+        "0",
+    ).strip().lower() in {"1", "true", "yes", "on"}
+
+    if real_provider_ready and not real_load_enabled:
         print(
             json.dumps(
                 {
                     "skipped": True,
-                    "reason": "real_conversation_provider_configured",
+                    "reason": "real_provider_load_test_not_enabled",
                 }
             )
         )
         return
 
-    request_count = int(
-        os.getenv("TELEPAT_CORE_LOAD_REQUESTS", "12")
-    )
+    if real_provider_ready:
+        request_count = int(
+            os.getenv("TELEPAT_REAL_PROVIDER_LOAD_REQUESTS", "3")
+        )
+        configured_concurrency = int(
+            os.getenv("TELEPAT_REAL_PROVIDER_LOAD_CONCURRENCY", "2")
+        )
+    else:
+        request_count = int(
+            os.getenv("TELEPAT_CORE_LOAD_REQUESTS", "12")
+        )
+        configured_concurrency = int(
+            os.getenv("TELEPAT_CORE_LOAD_CONCURRENCY", "4")
+        )
+
     workers = min(
         request_count,
-        int(os.getenv("TELEPAT_CORE_LOAD_CONCURRENCY", "4")),
+        configured_concurrency,
     )
 
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=workers,
     ) as pool:
         futures = [
-            pool.submit(one_chat, base, index)
+            pool.submit(
+                one_chat,
+                base,
+                index,
+                expect_real_provider=real_provider_ready,
+            )
             for index in range(request_count)
         ]
         results = [future.result() for future in futures]
@@ -185,6 +222,11 @@ def main() -> None:
         json.dumps(
             {
                 "skipped": False,
+                "mode": (
+                    "real_provider"
+                    if real_provider_ready
+                    else "deterministic_core"
+                ),
                 "requests": request_count,
                 "concurrency": workers,
                 "successes": len(results),
