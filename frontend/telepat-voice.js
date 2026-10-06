@@ -147,6 +147,10 @@
       this.active = false;
       this.starting = false;
       this.stopPlayback();
+      this.pendingAudioTurnId = null;
+      this.pendingAvatarTurnId = null;
+      this.pendingAvatarMeta = null;
+      this.pendingAvatarMedia = null;
 
       await this._cleanupMedia();
 
