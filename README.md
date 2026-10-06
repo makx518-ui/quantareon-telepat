@@ -93,9 +93,10 @@ Confirmed in the live Modal environment:
 - HTTP, WebSocket and concurrency smoke tests run automatically after Modal deployment
 - expensive chat/Astro/voice-connect paths are rate-limited
 - Memory API supports configurable auth header/scheme without changing the adapter
-- chat request idempotency makes bounded POST retries safe
+- payload-bound chat idempotency makes bounded POST retries safe and rejects key reuse with different content
 - per-session turn and Astro preparation locks prevent duplicate LLM/Gemini work
 - voice sessions enforce idle and maximum-duration cost guards
+- PCM frame-size/realtime pacing guards stop accelerated STT audio flooding before Deepgram
 
 The deterministic core is ready. Real external providers are not yet attached
 to the Modal environment, so current live conversation falls back to the mock
