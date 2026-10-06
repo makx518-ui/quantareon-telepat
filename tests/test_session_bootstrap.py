@@ -1,7 +1,13 @@
+import asyncio
+
+import pytest
+
 from fastapi.testclient import TestClient
 
 from telepat.api.main import app
-from telepat.astro.models import AstroCalculation, AstroSummary
+from telepat.api.session import prepare_session_astro
+from telepat.astro.models import AstroCalculation, AstroSummary, BirthData
+from telepat.core.session_manager import session_manager
 from telepat.astro.service import astro_service
 
 
@@ -112,3 +118,57 @@ def test_session_bootstrap_prepares_and_caches_astro(monkeypatch) -> None:
     assert astro.status_code == 200
     assert astro.json()["summary"]["overview"] == "Compact overview"
     assert calls == 1
+
+
+
+@pytest.mark.asyncio
+async def test_concurrent_astro_prepare_runs_interpreter_once(
+    monkeypatch,
+) -> None:
+    calls = 0
+
+    async def fake_calculate_and_interpret(birth, *, language="ru"):
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.02)
+        return (
+            AstroCalculation(raw_text="fixed astrofractal"),
+            AstroSummary(
+                overview="Concurrent overview",
+                core_themes=["theme"],
+                tensions=["tension"],
+                resources=["resource"],
+                reflection_questions=["question"],
+            ),
+        )
+
+    monkeypatch.setattr(
+        astro_service,
+        "calculate_and_interpret",
+        fake_calculate_and_interpret,
+    )
+
+    session = session_manager.get_or_create(
+        session_id="concurrent-astro-session",
+        user_id="concurrent-astro-user",
+        language="ru",
+    )
+    birth = BirthData.model_validate(_birth())
+
+    first, second = await asyncio.gather(
+        prepare_session_astro(
+            session_id=session.session_id,
+            birth=birth,
+            language="ru",
+        ),
+        prepare_session_astro(
+            session_id=session.session_id,
+            birth=birth,
+            language="ru",
+        ),
+    )
+
+    assert calls == 1
+    assert {first[1], second[1]} == {False, True}
+    assert first[0].overview == "Concurrent overview"
+    assert second[0].overview == "Concurrent overview"
