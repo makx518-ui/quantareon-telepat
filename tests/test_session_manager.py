@@ -145,3 +145,28 @@ def test_idempotency_cache_is_bounded_lru() -> None:
     assert manager.get_idempotent_response("idem", "a") is not None
     assert manager.get_idempotent_response("idem", "b") is None
     assert manager.get_idempotent_response("idem", "c") is not None
+
+
+
+def test_session_id_alone_cannot_reuse_existing_session() -> None:
+    manager = SessionManager(
+        ttl_seconds=100,
+        max_sessions=10,
+        max_history_turns=10,
+    )
+    first = manager.get_or_create(
+        session_id="protected-session",
+        user_id="owner-user",
+        language="ru",
+    )
+
+    second = manager.get_or_create(
+        session_id="protected-session",
+        user_id=None,
+        language="ru",
+    )
+
+    assert first.session_id == "protected-session"
+    assert first.user_id == "owner-user"
+    assert second.session_id != first.session_id
+    assert second.user_id != first.user_id
