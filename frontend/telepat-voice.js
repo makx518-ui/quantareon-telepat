@@ -103,6 +103,10 @@
 
       this.playback = null;
       this.playbackUrl = null;
+      this.playbackTurnId = null;
+      this.pendingAudioTurnId = null;
+      this.currentTurnId = 0;
+      this.cancelledThroughTurnId = 0;
 
       this.active = false;
       this.starting = false;
@@ -113,6 +117,10 @@
       if (!AudioCtx) throw new Error('Web Audio API is unavailable');
 
       this.starting = true;
+      this.currentTurnId = 0;
+      this.cancelledThroughTurnId = 0;
+      this.pendingAudioTurnId = null;
+      this.playbackTurnId = null;
       dispatch('state', { state: 'connecting' });
 
       try {
@@ -182,6 +190,7 @@
         } catch (_) {}
         this.playback = null;
       }
+      this.playbackTurnId = null;
       if (this.playbackUrl) {
         try { URL.revokeObjectURL(this.playbackUrl); } catch (_) {}
         this.playbackUrl = null;
@@ -307,7 +316,14 @@
 
     _onMessage(event) {
       if (typeof event.data !== 'string') {
-        this._playMp3(event.data);
+        const turnId = this.pendingAudioTurnId;
+        this.pendingAudioTurnId = null;
+
+        if (turnId && this._isStaleTurn(turnId)) {
+          return;
+        }
+
+        this._playMp3(event.data, turnId || this.currentTurnId || null);
         return;
       }
 
@@ -326,16 +342,37 @@
       }
 
       if (type === 'transcript') {
+        if (message.final && message.turn_id) {
+          if (this._isStaleTurn(message.turn_id)) return;
+          this.currentTurnId = Math.max(
+            this.currentTurnId,
+            Number(message.turn_id) || 0
+          );
+        }
         dispatch('transcript', message);
         return;
       }
 
       if (type === 'state') {
+        if (message.turn_id && this._isStaleTurn(message.turn_id)) return;
         dispatch('state', message);
         return;
       }
 
       if (type === 'barge_in') {
+        const interrupted = Number(message.turn_id) || 0;
+        if (interrupted) {
+          this.cancelledThroughTurnId = Math.max(
+            this.cancelledThroughTurnId,
+            interrupted
+          );
+        }
+        if (
+          this.pendingAudioTurnId &&
+          this._isStaleTurn(this.pendingAudioTurnId)
+        ) {
+          this.pendingAudioTurnId = null;
+        }
         this.stopPlayback();
         dispatch('barge-in', message);
         dispatch('state', { state: 'listening' });
@@ -343,6 +380,13 @@
       }
 
       if (type === 'reply') {
+        if (message.turn_id && this._isStaleTurn(message.turn_id)) return;
+        if (message.turn_id) {
+          this.currentTurnId = Math.max(
+            this.currentTurnId,
+            Number(message.turn_id) || 0
+          );
+        }
         if (message.user_id || message.session_id) {
           this.userId = message.user_id || this.userId;
           this.sessionId = message.session_id || this.sessionId;
@@ -357,6 +401,12 @@
       }
 
       if (type === 'audio_start') {
+        const turnId = Number(message.turn_id) || 0;
+        this.pendingAudioTurnId = turnId || null;
+        if (turnId && this._isStaleTurn(turnId)) return;
+        if (turnId) {
+          this.currentTurnId = Math.max(this.currentTurnId, turnId);
+        }
         dispatch('audio-start', message);
         dispatch('state', {
           state: 'speaking',
@@ -366,6 +416,7 @@
       }
 
       if (type === 'audio_end') {
+        if (message.turn_id && this._isStaleTurn(message.turn_id)) return;
         dispatch('audio-end', message);
         return;
       }
@@ -384,6 +435,7 @@
       }
 
       if (type === 'audio_unavailable' || type === 'error') {
+        if (message.turn_id && this._isStaleTurn(message.turn_id)) return;
         dispatch(type === 'error' ? 'error' : 'audio-unavailable', message);
         return;
       }
@@ -391,7 +443,18 @@
       dispatch('message', message);
     }
 
-    _playMp3(blobLike) {
+    _isStaleTurn(turnId) {
+      const id = Number(turnId) || 0;
+      if (!id) return false;
+      return (
+        id <= this.cancelledThroughTurnId ||
+        (this.currentTurnId > 0 && id < this.currentTurnId)
+      );
+    }
+
+    _playMp3(blobLike, turnId) {
+      if (turnId && this._isStaleTurn(turnId)) return;
+
       this.stopPlayback();
 
       const blob = blobLike instanceof Blob
@@ -401,20 +464,33 @@
       this.playbackUrl = URL.createObjectURL(blob);
       const audio = new Audio(this.playbackUrl);
       this.playback = audio;
+      this.playbackTurnId = turnId || null;
 
       audio.onended = () => {
-        this._sendJson({ type: 'playback_end' });
+        if (this.playback !== audio) return;
+        this._sendJson({
+          type: 'playback_end',
+          turn_id: this.playbackTurnId
+        });
         this.stopPlayback();
         dispatch('state', { state: 'listening' });
       };
       audio.onerror = () => {
-        this._sendJson({ type: 'playback_end' });
+        if (this.playback !== audio) return;
+        this._sendJson({
+          type: 'playback_end',
+          turn_id: this.playbackTurnId
+        });
         this.stopPlayback();
         dispatch('error', { stage: 'playback', error: 'audio playback failed' });
       };
 
       audio.play().catch((error) => {
-        this._sendJson({ type: 'playback_end' });
+        if (this.playback !== audio) return;
+        this._sendJson({
+          type: 'playback_end',
+          turn_id: this.playbackTurnId
+        });
         this.stopPlayback();
         dispatch('error', {
           stage: 'playback',
