@@ -135,6 +135,71 @@ def test_deepgram_utterance_end_flushes_accumulated_final_segment() -> None:
     )
     assert final == ["Готовая реплика"]
 
+
+
+def test_deepgram_tracks_detected_language_from_result() -> None:
+    stt = DeepgramStreamingSTT(language="auto")
+
+    payload = {
+        "type": "Results",
+        "is_final": True,
+        "speech_final": True,
+        "channel": {
+            "alternatives": [
+                {
+                    "transcript": "Guten Tag",
+                    "confidence": 0.99,
+                    "languages": ["de-DE"],
+                    "words": [
+                        {"word": "Guten", "language": "de-DE"},
+                        {"word": "Tag", "language": "de-DE"},
+                    ],
+                }
+            ]
+        },
+    }
+
+    asyncio.run(stt._handle_message(json.dumps(payload)))
+
+    assert stt.detected_language == "de-DE"
+
+
+def test_deepgram_detects_majority_word_language() -> None:
+    best = {
+        "words": [
+            {"word": "one", "language": "en-US"},
+            {"word": "два", "language": "ru"},
+            {"word": "три", "language": "ru"},
+        ]
+    }
+
+    assert DeepgramStreamingSTT._detect_result_language(best) == "ru"
+
+
+def test_voice_auto_language_uses_detected_language() -> None:
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="auto",
+    )
+    session.stt.detected_language = "ja-JP"
+
+    asyncio.run(session._on_transcript("こんにちは"))
+
+    assert session._transcripts.get_nowait() == (
+        "こんにちは",
+        "ja-JP",
+    )
+
+
+def test_andrew_locale_mapping_covers_nova3_multilingual_core() -> None:
+    assert microsoft_tts._locale("ru") == "ru-RU"
+    assert microsoft_tts._locale("hi") == "hi-IN"
+    assert microsoft_tts._locale("ja") == "ja-JP"
+    assert microsoft_tts._locale("nl") == "nl-NL"
+
 def test_deepgram_ru_uses_nova3_streaming_options() -> None:
     stt = DeepgramStreamingSTT(language="ru")
     url = stt._url()
