@@ -9,7 +9,7 @@ from telepat.config.prompt_loader import load_prompt
 from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
 
-from .base import ConversationProvider
+from .base import ConversationProvider, ConversationResult, ProviderUsage
 from .prompt import build_context_payload
 
 
@@ -40,7 +40,7 @@ class OpenAIConversationProvider(ConversationProvider):
     def configured(self) -> bool:
         return bool(os.getenv("OPENAI_API_KEY"))
 
-    async def generate(self, context: ContextPacket) -> str:
+    async def generate(self, context: ContextPacket) -> ConversationResult:
         if not self.configured:
             raise RuntimeError("OPENAI_API_KEY is not configured")
 
@@ -69,4 +69,18 @@ class OpenAIConversationProvider(ConversationProvider):
         text = _extract_response_text(data)
         if not text:
             raise RuntimeError("OpenAI returned an empty response")
-        return text
+
+        usage = data.get("usage") or {}
+        input_details = usage.get("input_tokens_details") or {}
+
+        return ConversationResult(
+            text=text,
+            model=model,
+            usage=ProviderUsage(
+                input_tokens=int(usage.get("input_tokens") or 0),
+                output_tokens=int(usage.get("output_tokens") or 0),
+                cached_input_tokens=int(
+                    input_details.get("cached_tokens") or 0
+                ),
+            ),
+        )
