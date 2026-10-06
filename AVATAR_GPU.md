@@ -87,6 +87,12 @@ Environment overrides are available:
 `AvatarGPUWorker.probe()` reports whether both benchmark assets exist and are
 non-empty before an engine benchmark starts.
 
+`TELEPAT Avatar Asset Seed` prepares this layout without enabling a GPU. It
+copies the temporary TELEPAT source from `quantareon-site/telepat-video-ru.mp4`
+and generates a fixed Ermil MP3 through the already-deployed CPU provider
+runtime, then uploads both files to the persistent Modal Volume. This step has
+no L4 allocation.
+
 The existing donor `quantareon-site/telepat-video-ru.mp4` can be used as a
 temporary source during infrastructure checks, but it is **not** automatically
 declared the final production lip-sync source. The final fixed TELEPAT source

@@ -47,3 +47,25 @@ async def voice_smoke_audio() -> bytes:
     if not audio:
         raise RuntimeError("Yandex voice smoke audio is empty")
     return audio
+
+
+
+@app.function(
+    image=cpu_image,
+    secrets=provider_secrets,
+    timeout=60,
+)
+async def avatar_benchmark_audio() -> bytes:
+    """Generate the fixed Ermil MP3 used by avatar engine benchmarks."""
+    from telepat.voice.yandex_tts import yandex_tts
+
+    audio = await yandex_tts.synthesize(
+        (
+            "Телепат готов к разговору. "
+            "Я слышу тебя и отвечаю спокойно, точно и по существу."
+        ),
+        language="ru",
+    )
+    if not audio:
+        raise RuntimeError("Yandex avatar benchmark audio is empty")
+    return audio

@@ -1,0 +1,54 @@
+name: TELEPAT Avatar Asset Seed
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/avatar-assets-trigger"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telepat-avatar-asset-seed
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Seed TELEPAT avatar benchmark assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal CLI
+        run: pip install "modal>=1.6,<2"
+
+      - name: Normalize Modal auth
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+          echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
+          echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
+
+      - name: Seed benchmark assets
+        run: python deploy/seed_avatar_assets.py
+
+      - name: Verify Modal Volume layout
+        run: |
+          python -m modal volume ls quantareon-telepat-assets benchmark --json
