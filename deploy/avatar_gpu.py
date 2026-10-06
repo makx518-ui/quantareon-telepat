@@ -3,6 +3,7 @@ from __future__ import annotations
 import modal
 
 from deploy.runtime import app, assets_volume, gpu_base_image
+from telepat.avatar.assets import avatar_asset_status
 
 
 @app.cls(
@@ -30,4 +31,5 @@ class AvatarGPUWorker:
             "engine": None,
             "engine_selected": False,
             "assets_mount": "/telepat-assets",
+            "assets": avatar_asset_status(),
         }
