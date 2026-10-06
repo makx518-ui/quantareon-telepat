@@ -18,6 +18,7 @@ from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
 from telepat.core.session_manager import session_manager
 from telepat.llm.router import ConversationUnavailableError
+from telepat.observability.metrics import runtime_metrics
 from telepat.voice.session import VoiceSession
 
 
@@ -81,6 +82,14 @@ async def health_providers() -> dict[str, bool]:
 @app.get("/health/readiness")
 async def health_readiness() -> dict[str, object]:
     return readiness_status()
+
+
+@app.get("/health/metrics")
+async def health_metrics() -> dict[str, object]:
+    return {
+        "privacy": "no_user_content",
+        "stages": runtime_metrics.snapshot(),
+    }
 
 
 @app.post("/session/bootstrap", response_model=SessionBootstrapResponse)
