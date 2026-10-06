@@ -13,7 +13,6 @@ def test_modal_deployment_modules_import() -> None:
     assert avatar_gpu.avatar_app is not None
     assert avatar_gpu.app is avatar_gpu.avatar_app
     assert avatar_gpu.AvatarGPUWorker is not None
-    assert avatar_gpu.app is avatar_gpu.avatar_app
     assert modal_app.web is not None
     assert modal_app.provider_probe is not None
     assert modal_app.voice_smoke_audio is not None

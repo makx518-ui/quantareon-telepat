@@ -3,6 +3,15 @@
 This document fixes the candidate set for the first real Modal L4 benchmark.
 It does **not** select the final engine in advance.
 
+## Benchmark order
+
+1. **MuseTalk 1.5 first** — interactive/realtime candidate.
+2. **LatentSync second** — quality reference after MuseTalk metrics are captured.
+
+MuseTalk is pinned for the first benchmark to upstream commit
+`0a89dec45a0192b824e3cf4daf96c239440c5ed8`. The benchmark app remains
+separate from the production GPU app until the candidate is validated.
+
 ## Candidate A — MuseTalk
 
 Why it stays in the benchmark:
