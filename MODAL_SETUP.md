@@ -32,8 +32,15 @@ Supported environment names include:
 - `AZURE_SPEECH_REGION`
 - `MEMORY_API_URL`
 - `MEMORY_API_KEY`
+- `TELEPAT_CONVERSATION_PROVIDER`
+- `TELEPAT_CONVERSATION_MODEL`
+- `TELEPAT_CONVERSATION_FALLBACKS`
+- `TELEPAT_GEMINI_MODEL`
+- `TELEPAT_GROQ_MODEL`
 - `TELEPAT_OPENAI_MODEL`
 - `TELEPAT_CLAUDE_MODEL`
+- `TELEPAT_ASTRO_PROVIDER`
+- `TELEPAT_ASTRO_MODEL`
 
 The provider secret is optional at deployment time. Modal workflows detect
 whether it exists:

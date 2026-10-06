@@ -29,6 +29,11 @@ def test_provider_secret_sync_collects_runtime_policy(monkeypatch) -> None:
     monkeypatch.setenv("TELEPAT_CHAT_RPM", "42")
     monkeypatch.setenv("TELEPAT_MEMORY_STORE_ENABLED", "0")
     monkeypatch.setenv(
+        "TELEPAT_CONVERSATION_FALLBACKS",
+        "gemini,groq,openai",
+    )
+    monkeypatch.setenv("TELEPAT_ASTRO_PROVIDER", "gemini")
+    monkeypatch.setenv(
         "TELEPAT_COST_RATES_JSON",
         '{"gpt-6-luna":{"input":0.05,"output":0.25}}',
     )
@@ -41,5 +46,9 @@ def test_provider_secret_sync_collects_runtime_policy(monkeypatch) -> None:
     )
     assert values["TELEPAT_CHAT_RPM"] == "42"
     assert values["TELEPAT_MEMORY_STORE_ENABLED"] == "0"
+    assert values["TELEPAT_CONVERSATION_FALLBACKS"] == (
+        "gemini,groq,openai"
+    )
+    assert values["TELEPAT_ASTRO_PROVIDER"] == "gemini"
     assert values["TELEPAT_COST_RATES_JSON"].startswith("{")
     assert values["YANDEX_TTS_SPEED"] == "0.96"
