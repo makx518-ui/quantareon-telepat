@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from telepat.avatar.models import AvatarRenderRequest
+from telepat.avatar.service import avatar_service
 from telepat.core.models import ChatRequest
 from telepat.core.orchestrator import orchestrator
 from telepat.llm.router import ConversationUnavailableError
@@ -63,6 +65,9 @@ class VoiceSession:
         )
         self.audio_burst_seconds = float(
             os.getenv("TELEPAT_VOICE_AUDIO_BURST_SECONDS", "3.0")
+        )
+        self.avatar_render_timeout_seconds = float(
+            os.getenv("TELEPAT_AVATAR_RENDER_TIMEOUT_SECONDS", "90")
         )
 
         self._audio_bytes_received = 0
@@ -485,6 +490,62 @@ class VoiceSession:
                     }
                 )
                 return
+
+            if avatar_service.configured:
+                try:
+                    avatar_result = await asyncio.wait_for(
+                        avatar_service.render(
+                            audio=audio,
+                            request=AvatarRenderRequest(
+                                turn_id=turn_id,
+                                state=response.avatar_state,
+                                user_id=response.user_id,
+                                session_id=response.session_id,
+                                metadata={
+                                    "intent": response.intent,
+                                    "language": language,
+                                },
+                            ),
+                        ),
+                        timeout=self.avatar_render_timeout_seconds,
+                    )
+                except Exception as exc:
+                    avatar_result = None
+                    logger.warning(
+                        "Avatar render unavailable: %s",
+                        type(exc).__name__,
+                    )
+                    try:
+                        await self.websocket.send_json(
+                            {
+                                "type": "avatar_unavailable",
+                                "reason": type(exc).__name__,
+                                "turn_id": turn_id,
+                            }
+                        )
+                    except Exception:
+                        pass
+
+                if turn_id != self._active_turn_id:
+                    return
+
+                if avatar_result is not None:
+                    await self.websocket.send_json(
+                        {
+                            "type": "avatar_start",
+                            "turn_id": turn_id,
+                            "media_type": avatar_result.media_type,
+                            "engine": avatar_result.engine,
+                            "latency_ms": avatar_result.latency_ms,
+                        }
+                    )
+                    await self.websocket.send_bytes(avatar_result.data)
+                    await self.websocket.send_json(
+                        {
+                            "type": "avatar_end",
+                            "turn_id": turn_id,
+                        }
+                    )
 
             self._audio_playback_active = True
             self._playback_turn_id = turn_id
