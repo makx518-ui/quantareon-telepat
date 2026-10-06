@@ -14,7 +14,7 @@ from telepat.avatar.gpu_probe import gpu_status
 SKYREELS_COMMIT = "28c771e8456341be6a213e3d1133ed1fd19bf75d"
 SKYREELS_REPO = "/opt/SkyReels-V3"
 SKYREELS_DATA_ROOT = "/skyreels-data"
-SKYREELS_MODEL_ID = "Skywork/SkyReels-V3-TalkingAvatar"
+SKYREELS_MODEL_ID = "Skywork/SkyReels-V3-A2V-19B"
 SKYREELS_MODEL_DIR = f"{SKYREELS_DATA_ROOT}/models/talking-avatar"
 
 PUBLIC_IMAGE_URL = (
