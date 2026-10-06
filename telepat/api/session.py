@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import weakref
 
 from pydantic import BaseModel
 
@@ -16,6 +17,20 @@ from telepat.memory.service import memory_adapter
 
 
 logger = logging.getLogger(__name__)
+
+_astro_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = (
+    weakref.WeakValueDictionary()
+)
+_astro_locks_guard = asyncio.Lock()
+
+
+async def _astro_lock(session_id: str) -> asyncio.Lock:
+    async with _astro_locks_guard:
+        lock = _astro_locks.get(session_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            _astro_locks[session_id] = lock
+        return lock
 
 
 class SessionBootstrapRequest(BaseModel):
@@ -71,34 +86,42 @@ async def prepare_session_astro(
 
     Returns (summary, cached).
     """
-    session = session_manager.get(session_id)
-    if session is None:
-        raise RuntimeError("TELEPAT session does not exist")
+    lock = await _astro_lock(session_id)
+    async with lock:
+        # Re-read inside the lock: a concurrent request may have completed
+        # Astro preparation while this request was waiting.
+        session = session_manager.get(session_id)
+        if session is None:
+            raise RuntimeError("TELEPAT session does not exist")
 
-    fingerprint = _birth_fingerprint(birth)
-    cached_fingerprint = session.metadata.get("astro_birth_fingerprint")
+        fingerprint = _birth_fingerprint(birth)
+        cached_fingerprint = session.metadata.get(
+            "astro_birth_fingerprint"
+        )
 
-    if (
-        session.astro_summary is not None
-        and cached_fingerprint == fingerprint
-    ):
-        return AstroSummary.model_validate(session.astro_summary), True
+        if (
+            session.astro_summary is not None
+            and cached_fingerprint == fingerprint
+        ):
+            return AstroSummary.model_validate(
+                session.astro_summary
+            ), True
 
-    _calculation, summary = await astro_service.calculate_and_interpret(
-        birth,
-        language=language,
-    )
+        _calculation, summary = await astro_service.calculate_and_interpret(
+            birth,
+            language=language,
+        )
 
-    session_manager.set_astro_summary(
-        session_id,
-        summary.as_context(),
-    )
-    session_manager.update_metadata(
-        session_id,
-        astro_birth_fingerprint=fingerprint,
-        astro_provider=summary.provider,
-    )
-    return summary, False
+        session_manager.set_astro_summary(
+            session_id,
+            summary.as_context(),
+        )
+        session_manager.update_metadata(
+            session_id,
+            astro_birth_fingerprint=fingerprint,
+            astro_provider=summary.provider,
+        )
+        return summary, False
 
 
 async def bootstrap_session(
