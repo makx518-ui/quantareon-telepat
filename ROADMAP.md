@@ -67,10 +67,10 @@ context.
 - [x] core modules depend on MemoryAdapter rather than concrete remote client
 - [x] adapter contract test
 
-Pending after the standalone Memory service is attached:
-- [ ] validate production recall/store contract
+Memory readiness:
 - [x] configurable Memory API authentication header/scheme
-- [ ] validate production recall/store contract against the actual Memory server
+- [x] operational provider-probe contract for recall/store
+- [ ] validate recall/store against the actual production Memory server
 - [ ] tune fact/summary policy from real sessions
 - [ ] move shared session state out of in-process memory when scaling beyond one CPU container
 
@@ -88,6 +88,10 @@ Goal: full duplex spoken conversation without GPU avatar rendering.
 - [x] browser PCM16 client
 - [x] live Modal WebSocket route smoke
 - [x] TTS/barge-in tests
+- [x] per-utterance automatic language routing
+- [x] bounded idle/max voice-session lifetime
+- [x] upstream STT disconnect cleanup
+- [x] browser reconnect/session-end contract
 
 Runtime gates:
 - [ ] real Deepgram connection
@@ -106,6 +110,8 @@ Goal: TELEPAT speaks through the final fixed character.
 - [x] browser Avatar Controller + `setLiveMedia()`
 - [x] CPU deployment decoupled from GPU registration
 - [x] engine-neutral benchmark harness and technical metrics contract
+- [x] separate CPU/GPU Modal apps
+- [x] deployed GPU hardware/assets preflight runner
 - [ ] enable L4 access/billing in Modal
 - [ ] benchmark candidate lip-sync engines on real L4
 - [ ] select the winning engine
@@ -135,8 +141,16 @@ Goal: production TELEPAT experience in `quantareon-site`.
 - [x] production readiness blocker report
 - [x] privacy/data-retention controls
 - [x] per-session token usage counters and model-priced cost accounting
+- [x] normalized cached-read/cache-write/thinking token accounting
+- [x] bounded chat idempotency cache for safe retries
+- [x] per-session turn and Astro preparation deduplication
+- [x] voice cost guards (idle/max connection limits)
 - [x] deterministic-core concurrency smoke
-- [ ] real-provider/GPU load tests
+- [x] opt-in real-provider load-test harness
+- [x] automated Provider Sync -> Deploy -> Provider Smoke chain
+- [x] stable Modal object graph with unconditional Secret dependency
+- [ ] execute real-provider load test
+- [ ] execute GPU load/benchmark tests
 
 ## Immediate execution order
 
