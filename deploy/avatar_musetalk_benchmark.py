@@ -45,6 +45,7 @@ musetalk_image = (
         'mim install "mmengine"',
         'mim install "mmcv==2.0.1"',
         'mim install "mmdet==3.1.0"',
+        "pip install --no-build-isolation chumpy==0.70",
         'mim install "mmpose==1.1.0"',
         (
             "cd /opt/MuseTalk && "
