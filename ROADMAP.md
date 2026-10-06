@@ -133,9 +133,10 @@ Goal: production TELEPAT experience in `quantareon-site`.
 - [x] structured observability/latency metrics
 - [x] provider configuration contract
 - [x] production readiness blocker report
-- [ ] privacy/data-retention controls
+- [x] privacy/data-retention controls
 - [x] per-session token usage counters and model-priced cost accounting
-- [ ] load tests
+- [x] deterministic-core concurrency smoke
+- [ ] real-provider/GPU load tests
 
 ## Immediate execution order
 
