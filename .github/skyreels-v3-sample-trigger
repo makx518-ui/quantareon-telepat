@@ -3,3 +3,4 @@ retry auth normalization
 retry after PyAV redeploy
 retry after CLIP SDPA fallback
 retry after full SDPA patch
+retry after fa_version SDPA compatibility fix
