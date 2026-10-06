@@ -212,6 +212,7 @@ def configuration_preflight() -> dict[str, Any]:
         ("TELEPAT_MAX_HISTORY_TURNS", "60"),
         ("TELEPAT_MAX_REPLY_CHARS", "6000"),
         ("TELEPAT_IDEMPOTENCY_ENTRIES", "32"),
+        ("TELEPAT_AVATAR_RENDER_TIMEOUT_SECONDS", "90"),
     ):
         ok, value = _positive_number(name, default=default)
         guards[name] = {"valid": ok, "value": value}
