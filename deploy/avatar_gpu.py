@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
+
 import modal
 
 from deploy.runtime import app, assets_volume, gpu_base_image
 from telepat.avatar.assets import avatar_asset_status
+from telepat.avatar.gpu_probe import gpu_status
 
 
 @app.cls(
@@ -24,12 +27,22 @@ class AvatarGPUWorker:
 
     @modal.method()
     def probe(self) -> dict[str, object]:
+        engine = os.getenv("TELEPAT_AVATAR_ENGINE", "").strip()
+        assets = avatar_asset_status()
+        hardware = gpu_status()
+
         return {
-            "ok": True,
+            "ok": bool(hardware.get("available")),
             "worker": "avatar-gpu",
-            "gpu": "L4",
-            "engine": None,
-            "engine_selected": False,
+            "requested_gpu": "L4",
+            "hardware": hardware,
+            "engine": engine or None,
+            "engine_selected": bool(engine),
             "assets_mount": "/telepat-assets",
-            "assets": avatar_asset_status(),
+            "assets": assets,
+            "benchmark_ready": bool(
+                hardware.get("available")
+                and assets.get("ready")
+                and engine
+            ),
         }
