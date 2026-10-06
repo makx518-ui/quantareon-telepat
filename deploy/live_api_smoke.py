@@ -13,6 +13,7 @@ def request_json(
     payload: dict | None = None,
     *,
     timeout: int = 20,
+    transport_retries: int | None = None,
 ) -> tuple[int, dict]:
     body = None
     headers = {"Accept": "application/json"}
@@ -26,17 +27,36 @@ def request_json(
         headers=headers,
         method=method,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            return response.status, data
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="replace")
+
+    if transport_retries is None:
+        transport_retries = (
+            int(os.getenv("TELEPAT_SMOKE_TRANSPORT_RETRIES", "3"))
+            if method.upper() == "GET"
+            else 1
+        )
+    transport_retries = max(1, transport_retries)
+
+    last_error: Exception | None = None
+    for attempt in range(1, transport_retries + 1):
         try:
-            data = json.loads(raw)
-        except Exception:
-            data = {"raw": raw}
-        return exc.code, data
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                return response.status, data
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", errors="replace")
+            try:
+                data = json.loads(raw)
+            except Exception:
+                data = {"raw": raw}
+            return exc.code, data
+        except (TimeoutError, urllib.error.URLError) as exc:
+            last_error = exc
+            if attempt >= transport_retries:
+                raise
+            time.sleep(0.5 * attempt)
+
+    assert last_error is not None
+    raise last_error
 
 
 def main() -> None:
