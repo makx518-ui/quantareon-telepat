@@ -71,3 +71,133 @@ def readiness_status() -> dict[str, object]:
         ),
         "providers": providers,
     }
+
+
+def provider_contract() -> dict[str, object]:
+    """Describe missing provider configuration without exposing any values."""
+    providers = provider_status()
+
+    claude_model_ready = bool(
+        settings.model_for("claude", settings.claude_model)
+    )
+    yandex_api_key = bool(os.getenv("YANDEX_SPEECHKIT_API_KEY"))
+    yandex_iam = bool(os.getenv("YANDEX_IAM_TOKEN"))
+    yandex_folder = bool(os.getenv("YANDEX_FOLDER_ID"))
+
+    contract = {
+        "gemini": {
+            "ready": providers["gemini"],
+            "missing": [] if providers["gemini"] else ["GEMINI_API_KEY"],
+        },
+        "groq": {
+            "ready": providers["groq"],
+            "missing": [] if providers["groq"] else ["GROQ_API_KEY"],
+        },
+        "openai": {
+            "ready": providers["openai"],
+            "missing": [] if providers["openai"] else ["OPENAI_API_KEY"],
+        },
+        "claude": {
+            "ready": providers["claude"],
+            "missing": [
+                name
+                for name, present in (
+                    ("ANTHROPIC_API_KEY", bool(os.getenv("ANTHROPIC_API_KEY"))),
+                    ("TELEPAT_CLAUDE_MODEL", claude_model_ready),
+                )
+                if not present
+            ],
+        },
+        "astro_gemini": {
+            "ready": providers["astro_gemini"],
+            "missing": (
+                []
+                if providers["astro_gemini"]
+                else ["GEMINI_API_KEY"]
+            ),
+        },
+        "deepgram": {
+            "ready": providers["deepgram"],
+            "missing": (
+                []
+                if providers["deepgram"]
+                else ["DEEPGRAM_API_KEY"]
+            ),
+        },
+        "yandex_ermil": {
+            "ready": providers["yandex_ermil"],
+            "missing": [],
+            "alternatives": [
+                {
+                    "name": "api_key",
+                    "ready": yandex_api_key,
+                    "requires": ["YANDEX_SPEECHKIT_API_KEY"],
+                },
+                {
+                    "name": "iam",
+                    "ready": yandex_iam and yandex_folder,
+                    "requires": ["YANDEX_IAM_TOKEN", "YANDEX_FOLDER_ID"],
+                },
+            ],
+        },
+        "microsoft_andrew": {
+            "ready": providers["microsoft_andrew"],
+            "missing": [
+                name
+                for name, present in (
+                    ("AZURE_SPEECH_KEY", bool(os.getenv("AZURE_SPEECH_KEY"))),
+                    (
+                        "AZURE_SPEECH_REGION",
+                        bool(os.getenv("AZURE_SPEECH_REGION")),
+                    ),
+                )
+                if not present
+            ],
+        },
+        "memory": {
+            "ready": providers["memory"],
+            "missing": (
+                []
+                if providers["memory"]
+                else ["MEMORY_API_URL"]
+            ),
+            "optional": ["MEMORY_API_KEY"],
+        },
+    }
+
+    conversation_candidates = [
+        name
+        for name in ("groq", "gemini", "openai", "claude")
+        if contract[name]["ready"]
+    ]
+    tts_candidates = [
+        name
+        for name in ("yandex_ermil", "microsoft_andrew")
+        if contract[name]["ready"]
+    ]
+
+    return {
+        "providers": contract,
+        "capabilities": {
+            "conversation": {
+                "ready": bool(conversation_candidates),
+                "candidates": conversation_candidates,
+            },
+            "astro_interpreter": {
+                "ready": bool(contract["astro_gemini"]["ready"]),
+                "provider": "gemini",
+            },
+            "voice_input": {
+                "ready": bool(contract["deepgram"]["ready"]),
+                "provider": "deepgram",
+            },
+            "voice_output": {
+                "ready": bool(tts_candidates),
+                "candidates": tts_candidates,
+            },
+            "memory": {
+                "ready": bool(contract["memory"]["ready"]),
+                "provider": "remote-memory",
+            },
+        },
+    }
