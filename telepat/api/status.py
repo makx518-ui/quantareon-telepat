@@ -252,3 +252,33 @@ def production_readiness_status() -> dict[str, object]:
             "gpu_enabled": avatar_gpu_enabled,
         },
     }
+
+
+
+def privacy_status() -> dict[str, object]:
+    """Describe runtime retention/privacy controls without user data."""
+    from telepat.core.session_manager import session_manager
+
+    recall_enabled = bool(
+        getattr(memory_adapter, "recall_enabled", False)
+    )
+    store_enabled = bool(
+        getattr(memory_adapter, "store_enabled", False)
+    )
+
+    return {
+        "metrics_store_user_content": False,
+        "rate_limit_identity_hashed": True,
+        "session_store": "in_process",
+        "session_ttl_seconds": session_manager.ttl_seconds,
+        "max_sessions": session_manager.max_sessions,
+        "max_history_turns": session_manager.max_history_turns,
+        "memory": {
+            "configured": memory_adapter.configured,
+            "recall_enabled": recall_enabled,
+            "store_enabled": store_enabled,
+            "external_persistence": (
+                memory_adapter.configured and store_enabled
+            ),
+        },
+    }
