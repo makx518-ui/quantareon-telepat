@@ -1,3 +1,5 @@
+import asyncio
+
 from telepat.memory.adapter import MemoryAdapter
 from telepat.memory.compact import compact_memory
 from telepat.memory.identity import legacy_memory_user_id
@@ -67,3 +69,40 @@ def test_memory_api_custom_header_without_scheme(monkeypatch) -> None:
     assert adapter._headers() == {
         "X-API-Key": "test-key",
     }
+
+
+
+def test_memory_privacy_switches_disable_remote_calls(monkeypatch) -> None:
+    monkeypatch.setenv("MEMORY_API_URL", "https://memory.example")
+    monkeypatch.setenv("TELEPAT_MEMORY_RECALL_ENABLED", "0")
+    monkeypatch.setenv("TELEPAT_MEMORY_STORE_ENABLED", "0")
+
+    class _ShouldNotOpen:
+        def __init__(self, *args, **kwargs) -> None:
+            raise AssertionError("network client must not be created")
+
+    monkeypatch.setattr(
+        "telepat.memory.remote.httpx.AsyncClient",
+        _ShouldNotOpen,
+    )
+
+    adapter = RemoteMemoryAdapter()
+
+    recalled = asyncio.run(
+        adapter.recall(
+            user_id="privacy-user",
+            message="secret text",
+        )
+    )
+    stored = asyncio.run(
+        adapter.store_exchange(
+            user_id="privacy-user",
+            message="secret text",
+            response_text="reply",
+        )
+    )
+
+    assert adapter.recall_enabled is False
+    assert adapter.store_enabled is False
+    assert recalled == {}
+    assert stored is None
