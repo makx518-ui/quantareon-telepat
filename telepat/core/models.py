@@ -20,6 +20,11 @@ Intent = Literal[
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
+    request_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+    )
     user_id: str | None = None
     session_id: str | None = None
     language: str = "ru"
@@ -28,6 +33,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+    request_id: str | None = None
     user_id: str
     session_id: str
     intent: Intent
