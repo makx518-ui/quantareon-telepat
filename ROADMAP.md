@@ -69,7 +69,8 @@ context.
 
 Pending after the standalone Memory service is attached:
 - [ ] validate production recall/store contract
-- [ ] validate any required authentication header
+- [x] configurable Memory API authentication header/scheme
+- [ ] validate production recall/store contract against the actual Memory server
 - [ ] tune fact/summary policy from real sessions
 - [ ] move shared session state out of in-process memory when scaling beyond one CPU container
 
@@ -104,8 +105,9 @@ Goal: TELEPAT speaks through the final fixed character.
 - [x] deterministic state/director logic
 - [x] browser Avatar Controller + `setLiveMedia()`
 - [x] CPU deployment decoupled from GPU registration
+- [x] engine-neutral benchmark harness and technical metrics contract
 - [ ] enable L4 access/billing in Modal
-- [ ] benchmark candidate lip-sync engines
+- [ ] benchmark candidate lip-sync engines on real L4
 - [ ] select the winning engine
 - [ ] install it behind AvatarAdapter
 - [ ] audio -> lip-sync render
@@ -114,6 +116,7 @@ Goal: TELEPAT speaks through the final fixed character.
 ## Phase 7 — Site integration
 Goal: production TELEPAT experience in `quantareon-site`.
 
+- [x] unified browser runtime facade for session + voice + avatar
 - [ ] connect existing TELEPAT page to Modal API
 - [ ] start bootstrap during greeting video
 - [ ] map final idle/listening/thinking/gesture clips
@@ -126,8 +129,10 @@ Goal: production TELEPAT experience in `quantareon-site`.
 - [x] provider fallbacks at architecture level
 - [x] core/provider readiness separation
 - [x] automated live HTTP/WebSocket deployment smoke
-- [ ] rate limits
-- [ ] structured observability/latency metrics
+- [x] rate limits on expensive public routes
+- [x] structured observability/latency metrics
+- [x] provider configuration contract
+- [x] production readiness blocker report
 - [ ] privacy/data-retention controls
 - [ ] cost counters per session
 - [ ] load tests
