@@ -26,6 +26,7 @@ from telepat.core.orchestrator import orchestrator
 from telepat.core.session_manager import session_manager
 from telepat.llm.router import ConversationUnavailableError
 from telepat.observability.metrics import runtime_metrics
+from telepat.observability.usage import usage_registry
 from telepat.security.rate_limit import (
     astro_limit,
     chat_limit,
@@ -118,6 +119,41 @@ async def health_metrics() -> dict[str, object]:
 @app.get("/health/privacy")
 async def health_privacy() -> dict[str, object]:
     return privacy_status()
+
+
+@app.get("/session/usage")
+async def session_usage(
+    session_id: str,
+    user_id: str,
+) -> dict[str, object]:
+    session = session_manager.get(session_id)
+    if session is None or session.user_id != user_id:
+        raise HTTPException(
+            status_code=404,
+            detail="session_not_found",
+        )
+
+    usage = usage_registry.snapshot(session_id)
+    if usage is None:
+        usage = {
+            "calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached_input_tokens": 0,
+            "thought_tokens": 0,
+            "total_tokens": 0,
+            "providers": {},
+            "models": {},
+            "priced_calls": 0,
+            "unpriced_calls": 0,
+            "fully_priced": True,
+            "priced_cost_usd": 0.0,
+        }
+
+    return {
+        "session_id": session_id,
+        "usage": usage,
+    }
 
 
 @app.post("/session/bootstrap", response_model=SessionBootstrapResponse)
