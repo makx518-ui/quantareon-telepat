@@ -10,6 +10,8 @@ from telepat.avatar.gpu_probe import gpu_status
 
 
 avatar_app = modal.App("quantareon-telepat-avatar")
+# Modal CLI discovers `app` by convention when deploying a module path.
+app = avatar_app
 # Modal CLI discovers a top-level `app` by convention.
 app = avatar_app
 

@@ -11,6 +11,7 @@ def test_modal_deployment_modules_import() -> None:
     assert runtime.cpu_image is not None
     assert runtime.gpu_base_image is not None
     assert avatar_gpu.avatar_app is not None
+    assert avatar_gpu.app is avatar_gpu.avatar_app
     assert avatar_gpu.AvatarGPUWorker is not None
     assert avatar_gpu.app is avatar_gpu.avatar_app
     assert modal_app.web is not None
