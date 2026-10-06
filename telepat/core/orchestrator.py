@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import weakref
 from collections.abc import Coroutine
 from dataclasses import dataclass, field
 from typing import Any
@@ -32,8 +33,8 @@ class Orchestrator:
         init=False,
         repr=False,
     )
-    _session_locks: dict[str, asyncio.Lock] = field(
-        default_factory=dict,
+    _session_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = field(
+        default_factory=weakref.WeakValueDictionary,
         init=False,
         repr=False,
     )
