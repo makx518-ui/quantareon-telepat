@@ -161,7 +161,11 @@ def provider_contract() -> dict[str, object]:
                 if providers["memory"]
                 else ["MEMORY_API_URL"]
             ),
-            "optional": ["MEMORY_API_KEY"],
+            "optional": [
+                "MEMORY_API_KEY",
+                "MEMORY_API_AUTH_HEADER",
+                "MEMORY_API_AUTH_SCHEME",
+            ],
         },
     }
 
