@@ -36,6 +36,14 @@ class RemoteMemoryAdapter:
             "MEMORY_API_AUTH_SCHEME",
             "Bearer",
         ).strip()
+        self.recall_enabled = os.getenv(
+            "TELEPAT_MEMORY_RECALL_ENABLED",
+            "1",
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        self.store_enabled = os.getenv(
+            "TELEPAT_MEMORY_STORE_ENABLED",
+            "1",
+        ).strip().lower() in {"1", "true", "yes", "on"}
 
     def _headers(self) -> dict[str, str]:
         if not self.api_key or not self.auth_header:
@@ -58,7 +66,7 @@ class RemoteMemoryAdapter:
         message: str,
         level: str = "medium",
     ) -> dict[str, Any]:
-        if not self.configured:
+        if not self.configured or not self.recall_enabled:
             return {}
 
         payload = {
@@ -115,7 +123,7 @@ class RemoteMemoryAdapter:
         message: str,
         response_text: str,
     ) -> None:
-        if not self.configured:
+        if not self.configured or not self.store_enabled:
             return
 
         payload = {
