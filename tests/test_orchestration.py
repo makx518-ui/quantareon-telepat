@@ -184,3 +184,71 @@ async def test_idle_session_turn_lock_is_released() -> None:
     await asyncio.sleep(0)
 
     assert "ephemeral-session" not in local._session_locks
+
+
+
+@pytest.mark.asyncio
+async def test_same_request_id_is_idempotent(monkeypatch) -> None:
+    local = Orchestrator()
+    calls = 0
+
+    async def generate_once(context, **kwargs):
+        nonlocal calls
+        calls += 1
+        return "stable reply", "mock"
+
+    monkeypatch.setattr(llm_router, "generate", generate_once)
+
+    request = ChatRequest(
+        message="Повтори безопасно",
+        request_id="idem-1",
+        user_id="idem-user",
+        session_id="idem-session",
+        language="ru",
+    )
+
+    first = await local.handle_chat(request)
+    second = await local.handle_chat(request)
+
+    assert calls == 1
+    assert first == second
+    assert first.request_id == "idem-1"
+
+    session = session_manager.get("idem-session")
+    assert session is not None
+    assert [turn.content for turn in session.history[-2:]] == [
+        "Повтори безопасно",
+        "stable reply",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_duplicate_request_id_calls_llm_once(
+    monkeypatch,
+) -> None:
+    local = Orchestrator()
+    calls = 0
+
+    async def slow_generate(context, **kwargs):
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.02)
+        return "one reply", "mock"
+
+    monkeypatch.setattr(llm_router, "generate", slow_generate)
+
+    request = ChatRequest(
+        message="Один запрос",
+        request_id="idem-concurrent",
+        user_id="idem-concurrent-user",
+        session_id="idem-concurrent-session",
+        language="ru",
+    )
+
+    first, second = await asyncio.gather(
+        local.handle_chat(request),
+        local.handle_chat(request),
+    )
+
+    assert calls == 1
+    assert first == second
