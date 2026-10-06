@@ -11,6 +11,7 @@ async def run_provider_probe() -> dict[str, object]:
     from telepat.core.models import ChatRequest
     from telepat.core.orchestrator import orchestrator
     from telepat.core.session_manager import session_manager
+    from telepat.memory.service import memory_adapter
     from telepat.voice.deepgram import DeepgramStreamingSTT
     from telepat.voice.tts_router import tts_router
 
@@ -135,6 +136,31 @@ async def run_provider_probe() -> dict[str, object]:
             "error": type(exc).__name__,
         }
 
+    if providers.get("memory"):
+        try:
+            report["memory"] = await asyncio.wait_for(
+                memory_adapter.probe(),
+                timeout=30,
+            )
+        except Exception as exc:
+            report["memory"] = {
+                "configured": True,
+                "required": bool(
+                    getattr(memory_adapter, "recall_enabled", False)
+                    and getattr(memory_adapter, "store_enabled", False)
+                ),
+                "overall_ok": False,
+                "error": type(exc).__name__,
+            }
+    else:
+        report["memory"] = {
+            "configured": False,
+            "required": False,
+            "overall_ok": True,
+            "recall": {"skipped": True},
+            "store": {"skipped": True},
+        }
+
     stt = DeepgramStreamingSTT(language="ru")
     if not stt.configured:
         report["deepgram"] = {
@@ -199,6 +225,13 @@ async def run_provider_probe() -> dict[str, object]:
         and not report.get("deepgram", {}).get("ok")
     ):
         failures.append("deepgram")
+
+    memory_report = report.get("memory") or {}
+    if (
+        memory_report.get("required")
+        and not memory_report.get("overall_ok")
+    ):
+        failures.append("memory")
 
     report["overall_ok"] = not failures
     report["required_failures"] = failures
