@@ -102,3 +102,28 @@ def test_production_readiness_lists_runtime_blockers(monkeypatch) -> None:
     assert "avatar_engine" in data["blockers"]
     assert "avatar_gpu" in data["blockers"]
     assert data["capabilities"]["astrofractal_engine"] is True
+
+
+
+def test_memory_readiness_requires_recall_and_store(monkeypatch) -> None:
+    import telepat.api.status as status_module
+
+    class _Memory:
+        configured = True
+        recall_enabled = True
+        store_enabled = False
+
+    monkeypatch.setattr(status_module, "memory_adapter", _Memory())
+
+    providers = status_module.provider_status()
+    readiness = status_module.readiness_status()
+    contract = status_module.provider_contract()
+
+    assert providers["memory"] is True
+    assert readiness["memory_ready"] is False
+    assert contract["providers"]["memory"]["ready"] is True
+    assert contract["providers"]["memory"]["operational"] is False
+    assert contract["providers"]["memory"]["controls"] == {
+        "recall_enabled": True,
+        "store_enabled": False,
+    }
