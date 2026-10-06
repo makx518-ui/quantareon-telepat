@@ -13,6 +13,7 @@ from telepat.api.session import (
     prepare_session_astro,
 )
 from telepat.api.status import (
+    privacy_status,
     production_readiness_status,
     provider_contract,
     provider_status,
@@ -112,6 +113,11 @@ async def health_metrics() -> dict[str, object]:
         "privacy": "no_user_content",
         "stages": runtime_metrics.snapshot(),
     }
+
+
+@app.get("/health/privacy")
+async def health_privacy() -> dict[str, object]:
+    return privacy_status()
 
 
 @app.post("/session/bootstrap", response_model=SessionBootstrapResponse)
