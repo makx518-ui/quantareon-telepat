@@ -32,3 +32,35 @@ and the Ermil audio. Selection criteria:
 
 Do not wire the browser directly to a model-specific API. The selected engine
 must implement the common AvatarAdapter contract.
+
+
+## Benchmark harness
+
+Every candidate engine must implement `AvatarAdapter` and expose a stable
+`name`. TELEPAT benchmarks candidates through
+`telepat.avatar.benchmark.benchmark_avatar_adapter()`.
+
+The automated technical comparison records:
+
+- warm-up latency
+- p50 render latency
+- p95 render latency
+- max render latency
+- p50 real-time factor (`render_ms / audio_duration_ms`)
+- average output size
+- peak VRAM when the GPU adapter supplies a reader
+
+The same final TELEPAT portrait/video source and the same Ermil audio sample
+must be used for every candidate.
+
+Human review remains separate and scores:
+
+- identity stability
+- lip-sync accuracy
+- facial naturalness
+- temporal artifacts
+- gesture/state compatibility
+- commercial/license suitability
+
+Do not select an engine solely from speed. The winning adapter must satisfy both
+the technical benchmark and the visual review.
