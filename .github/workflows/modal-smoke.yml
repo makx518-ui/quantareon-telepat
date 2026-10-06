@@ -76,10 +76,10 @@ jobs:
           print("Provider secret:", "attached" if attach else "not present")
           PY
 
-      - name: Run TELEPAT provider smoke
+      - name: Run deployed TELEPAT provider probe
         shell: bash
         run: |
           CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
           CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
           MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
-            timeout 300s python -m modal run -m deploy.smoke
+            timeout 300s python deploy/run_provider_probe.py
