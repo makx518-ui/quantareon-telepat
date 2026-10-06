@@ -33,6 +33,10 @@ Known risks to measure:
 
 ## Candidate B — LatentSync
 
+The second benchmark is pinned to LatentSync 1.6 upstream commit
+`a229c3948406bc2cf6eaf4873e662e70c6a04746`. The official project documents
+18 GB minimum VRAM for 1.6 inference, so the 24 GB Modal L4 is a valid target.
+
 Why it stays in the benchmark:
 
 - official repository license: Apache-2.0
