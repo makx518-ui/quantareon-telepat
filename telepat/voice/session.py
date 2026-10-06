@@ -88,7 +88,14 @@ class VoiceSession:
         )
 
     async def run(self) -> None:
-        await self.websocket.accept()
+        try:
+            await self.websocket.accept()
+        except RuntimeError as exc:
+            # A browser may disconnect while the ASGI handshake is still
+            # pending. Treat that as a normal client abort, not a server error.
+            if "websocket.disconnect" in str(exc):
+                return
+            raise
 
         if not self.stt.configured:
             await self.websocket.send_json(
@@ -142,7 +149,7 @@ class VoiceSession:
                         "type": "error",
                         "stage": "session",
                         "message": type(exc).__name__,
-                        "turn_id": turn_id,
+                        "turn_id": self._active_turn_id,
                     }
                 )
             except Exception:
