@@ -153,6 +153,16 @@ def main() -> None:
     else:
         assert chat["provider"] == "mock", chat
 
+    status, metrics = request_json(
+        "GET",
+        base + "/health/metrics",
+    )
+    assert status == 200, (status, metrics)
+    assert metrics["privacy"] == "no_user_content"
+    stages = metrics["stages"]
+    assert stages["llm"]["count"] >= 1, stages
+    assert stages["turn_total"]["count"] >= 1, stages
+
     print(
         json.dumps(
             {
@@ -169,6 +179,10 @@ def main() -> None:
                     "memory_ready": bootstrap["memory_ready"],
                     "astro_ready": bootstrap["astro_ready"],
                     "astro_status": bootstrap["astro_status"],
+                },
+                "metrics": {
+                    "llm_p50_ms": stages["llm"]["p50_ms"],
+                    "turn_p50_ms": stages["turn_total"]["p50_ms"],
                 },
                 "chat": {
                     "provider": chat["provider"],
