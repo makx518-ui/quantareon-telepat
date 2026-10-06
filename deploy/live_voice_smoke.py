@@ -158,7 +158,10 @@ async def _exercise_real_voice_turn(ws) -> dict[str, object]:
     }
 
 
-async def _check_once(url: str) -> dict[str, object]:
+async def _check_once(
+    url: str,
+    providers: dict[str, bool],
+) -> dict[str, object]:
     async with websockets.connect(
         url,
         open_timeout=20,
@@ -196,8 +199,6 @@ async def _check_once(url: str) -> dict[str, object]:
             "ping_pong": True,
         }
 
-        base = os.environ["TELEPAT_ENDPOINT"]
-        providers = await asyncio.to_thread(_provider_status, base)
         conversation_ready = any(
             providers.get(name)
             for name in ("gemini", "groq", "openai", "claude")
@@ -227,7 +228,12 @@ async def run() -> None:
     last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            result = await _check_once(url)
+            # Query provider readiness before opening the long-lived WebSocket.
+            # The Modal CPU runtime intentionally runs one container while
+            # sessions are in-process; a nested HTTP request from inside an
+            # active WebSocket can otherwise wait behind that same connection.
+            providers = await asyncio.to_thread(_provider_status, base)
+            result = await _check_once(url, providers)
             print(json.dumps(result))
             return
         except (TimeoutError, OSError) as exc:
