@@ -130,3 +130,24 @@ class LatentSyncBenchmarkWorker:
             "assets": assets,
             "benchmark": summary.as_dict(),
         }
+
+    @modal.method()
+    async def sample(self) -> bytes:
+        assets = avatar_asset_status()
+        if not assets.get("ready"):
+            raise RuntimeError(
+                "Avatar benchmark assets are not ready: "
+                + json.dumps(assets.get("missing") or [])
+            )
+
+        from telepat.avatar.latentsync import LatentSync16Adapter
+
+        audio = benchmark_audio_path().read_bytes()
+        adapter = LatentSync16Adapter()
+        data = await adapter.render(
+            audio=audio,
+            state="speaking",
+        )
+        if not isinstance(data, bytes) or not data:
+            raise RuntimeError("Avatar sample render returned no media")
+        return data
