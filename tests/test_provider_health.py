@@ -40,3 +40,34 @@ def test_readiness_separates_core_from_external_providers(monkeypatch) -> None:
     assert data["live_voice_ready"] is False
     assert data["full_telepat_ready"] is False
     assert isinstance(data["providers"], dict)
+
+
+
+def test_provider_contract_lists_missing_variable_names_only(monkeypatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+    monkeypatch.delenv("YANDEX_SPEECHKIT_API_KEY", raising=False)
+    monkeypatch.delenv("YANDEX_IAM_TOKEN", raising=False)
+    monkeypatch.delenv("YANDEX_FOLDER_ID", raising=False)
+    monkeypatch.delenv("AZURE_SPEECH_KEY", raising=False)
+    monkeypatch.delenv("AZURE_SPEECH_REGION", raising=False)
+    monkeypatch.delenv("MEMORY_API_URL", raising=False)
+
+    response = client.get("/health/provider-contract")
+    assert response.status_code == 200
+    data = response.json()
+
+    providers = data["providers"]
+    assert providers["gemini"]["missing"] == ["GEMINI_API_KEY"]
+    assert providers["deepgram"]["missing"] == ["DEEPGRAM_API_KEY"]
+    assert providers["memory"]["missing"] == ["MEMORY_API_URL"]
+
+    yandex = providers["yandex_ermil"]
+    assert yandex["ready"] is False
+    assert len(yandex["alternatives"]) == 2
+
+    serialized = str(data)
+    assert "secret-value" not in serialized
