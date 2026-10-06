@@ -1,0 +1,1 @@
+"""TELEPAT runtime diagnostics."""
