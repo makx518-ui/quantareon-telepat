@@ -245,3 +245,30 @@ def test_production_readiness_blocks_invalid_configuration(
         "ok": False,
         "errors": ["production_cors_not_restricted"],
     }
+
+
+
+def test_launch_summary_groups_runtime_blockers(monkeypatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+    monkeypatch.delenv("YANDEX_SPEECHKIT_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_SPEECH_KEY", raising=False)
+    monkeypatch.delenv("MEMORY_API_URL", raising=False)
+    monkeypatch.delenv("TELEPAT_AVATAR_ENGINE", raising=False)
+    monkeypatch.delenv("TELEPAT_AVATAR_GPU_ENABLED", raising=False)
+
+    response = client.get("/health/launch-summary")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["runtime_ready"] is True
+    assert data["providers_ready"] is False
+    assert data["avatar_ready"] is False
+    assert data["site_integration_ready"] is False
+    assert data["session_store"]["kind"] == "in_process"
+    assert data["privacy"]["metrics_store_user_content"] is False
+    assert "conversation_provider" in data["blockers"]
+    assert "GEMINI_API_KEY" in data["providers"]["missing"]["gemini"]
