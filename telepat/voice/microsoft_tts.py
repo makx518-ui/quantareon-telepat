@@ -7,12 +7,19 @@ import httpx
 
 
 _LOCALES = {
+    # Nova-3 multilingual core languages.
     "en": "en-US",
-    "de": "de-DE",
-    "fr": "fr-FR",
     "es": "es-ES",
-    "it": "it-IT",
+    "fr": "fr-FR",
+    "de": "de-DE",
+    "hi": "hi-IN",
+    "ru": "ru-RU",
     "pt": "pt-BR",
+    "ja": "ja-JP",
+    "it": "it-IT",
+    "nl": "nl-NL",
+
+    # Additional TELEPAT-supported locales.
     "pl": "pl-PL",
     "tr": "tr-TR",
     "uk": "uk-UA",
