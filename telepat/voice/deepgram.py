@@ -6,6 +6,7 @@ import json
 import logging
 import os
 from time import perf_counter
+from collections import Counter
 from collections.abc import Awaitable, Callable
 from urllib.parse import urlencode
 
@@ -87,7 +88,9 @@ class DeepgramStreamingSTT:
         on_disconnect: EventCallback | None = None,
     ) -> None:
         self.api_key = os.getenv("DEEPGRAM_API_KEY", "")
+        self.requested_language = (language or "ru").strip()
         self.language = normalize_deepgram_language(language)
+        self.detected_language: str | None = None
         self.on_transcript = on_transcript
         self.on_interim = on_interim
         self.on_speech_start = on_speech_start
@@ -266,6 +269,10 @@ class DeepgramStreamingSTT:
 
         best = alternatives[0]
         transcript = str(best.get("transcript") or "").strip()
+        detected = self._detect_result_language(best)
+        if detected:
+            self.detected_language = detected
+
         confidence = float(best.get("confidence") or 0)
         is_final = bool(event.get("is_final"))
         speech_final = bool(event.get("speech_final"))
