@@ -27,6 +27,25 @@ class RemoteMemoryAdapter:
 
     def __init__(self) -> None:
         self.base_url = os.getenv("MEMORY_API_URL", "").rstrip("/")
+        self.api_key = os.getenv("MEMORY_API_KEY", "").strip()
+        self.auth_header = os.getenv(
+            "MEMORY_API_AUTH_HEADER",
+            "Authorization",
+        ).strip()
+        self.auth_scheme = os.getenv(
+            "MEMORY_API_AUTH_SCHEME",
+            "Bearer",
+        ).strip()
+
+    def _headers(self) -> dict[str, str]:
+        if not self.api_key or not self.auth_header:
+            return {}
+
+        value = self.api_key
+        if self.auth_scheme:
+            value = f"{self.auth_scheme} {self.api_key}"
+
+        return {self.auth_header: value}
 
     @property
     def configured(self) -> bool:
@@ -54,6 +73,7 @@ class RemoteMemoryAdapter:
                 response = await client.post(
                     f"{self.base_url}/api/recall",
                     json=payload,
+                    headers=self._headers(),
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -110,6 +130,7 @@ class RemoteMemoryAdapter:
                 response = await client.post(
                     f"{self.base_url}/api/store",
                     json=payload,
+                    headers=self._headers(),
                 )
                 response.raise_for_status()
         except Exception as exc:
