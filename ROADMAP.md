@@ -66,6 +66,8 @@ context.
 - [x] asynchronous exchange persistence
 - [x] core modules depend on MemoryAdapter rather than concrete remote client
 - [x] adapter contract test
+- [x] stable SessionStore protocol/service boundary
+- [x] runtime layers depend on SessionStore rather than concrete manager
 
 Memory readiness:
 - [x] configurable Memory API authentication header/scheme
@@ -92,6 +94,11 @@ Goal: full duplex spoken conversation without GPU avatar rendering.
 - [x] bounded idle/max voice-session lifetime
 - [x] upstream STT disconnect cleanup
 - [x] browser reconnect/session-end contract
+- [x] monotonic per-turn voice ids
+- [x] stale voice/audio frames rejected in browser
+- [x] browser voice runtime smoke in CI
+- [x] turn-aware avatar media handoff
+- [x] voice pacing/frame-size/control-size guards
 
 Runtime gates:
 - [ ] real Deepgram connection
@@ -139,16 +146,21 @@ Goal: production TELEPAT experience in `quantareon-site`.
 - [x] structured observability/latency metrics
 - [x] provider configuration contract
 - [x] production readiness blocker report
+- [x] runtime configuration preflight
 - [x] privacy/data-retention controls
 - [x] per-session token usage counters and model-priced cost accounting
 - [x] normalized cached-read/cache-write/thinking token accounting
-- [x] bounded chat idempotency cache for safe retries
+- [x] bounded payload-bound chat idempotency cache for safe retries
+- [x] HTTP 409 on request-id/payload conflicts
 - [x] per-session turn and Astro preparation deduplication
 - [x] voice cost guards (idle/max connection limits)
 - [x] deterministic-core concurrency smoke
 - [x] opt-in real-provider load-test harness
 - [x] automated Provider Sync -> Deploy -> Provider Smoke chain
 - [x] stable Modal object graph with unconditional Secret dependency
+- [x] build-SHA convergence check after Modal deploy
+- [x] separate CPU/GPU Modal apps
+- [x] deployed provider probe as single diagnostic source
 - [ ] execute real-provider load test
 - [ ] execute GPU load/benchmark tests
 
