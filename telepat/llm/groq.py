@@ -55,14 +55,16 @@ class GroqConversationProvider(ConversationProvider):
         usage = data.get("usage") or {}
         prompt_details = usage.get("prompt_tokens_details") or {}
 
+        total_input = int(usage.get("prompt_tokens") or 0)
+        cached_input = int(prompt_details.get("cached_tokens") or 0)
+        cached_input = min(max(0, cached_input), max(0, total_input))
+
         return ConversationResult(
             text=text,
             model=model,
             usage=ProviderUsage(
-                input_tokens=int(usage.get("prompt_tokens") or 0),
+                input_tokens=max(0, total_input - cached_input),
                 output_tokens=int(usage.get("completion_tokens") or 0),
-                cached_input_tokens=int(
-                    prompt_details.get("cached_tokens") or 0
-                ),
+                cached_input_tokens=cached_input,
             ),
         )
