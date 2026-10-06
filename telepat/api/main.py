@@ -19,6 +19,7 @@ from telepat.api.status import (
     readiness_status,
 )
 from telepat.astro.models import AstroSummary, BirthData
+from telepat.config.settings import settings
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
 from telepat.core.session_manager import session_manager
@@ -48,9 +49,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(settings.cors_origins),
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
