@@ -66,3 +66,26 @@ Barge-in behavior:
 The browser must persist the returned TELEPAT `user_id` locally and pass it on
 future visits. This is a TELEPAT-generated random identity, not browser
 fingerprinting.
+
+
+## Automatic language mode
+
+The browser may open the voice socket with `language=auto` (or `multi`).
+
+TELEPAT then requests Deepgram Nova-3 multilingual recognition. For every
+utterance it reads the language tags returned by Deepgram and routes that
+detected language into both the Conversation LLM and TTS layer.
+
+Routing policy:
+
+```
+detected Russian -> Yandex Ermil -> Andrew fallback
+other detected language -> Microsoft Andrew Multilingual
+```
+
+Nova-3 multilingual currently covers the core TELEPAT auto-language set:
+English, Spanish, French, German, Hindi, Russian, Portuguese, Japanese, Italian
+and Dutch. The Andrew locale map explicitly covers the same set.
+
+A fixed socket language such as `ru` or `en-US` still disables automatic
+selection and keeps that language for the whole voice session.
