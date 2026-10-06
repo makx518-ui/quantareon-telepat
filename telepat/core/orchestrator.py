@@ -17,7 +17,7 @@ from telepat.observability.metrics import runtime_metrics
 from .context_builder import build_context_packet, classify_intent
 from .models import ChatRequest, ChatResponse
 from .plan import OrchestrationPlan, build_plan
-from .session_manager import session_manager
+from .session_service import session_store
 
 
 @dataclass(slots=True)
@@ -70,7 +70,7 @@ class Orchestrator:
             return lock
 
     async def handle_chat(self, request: ChatRequest) -> ChatResponse:
-        session = session_manager.get_or_create(
+        session = session_store.get_or_create(
             session_id=request.session_id,
             user_id=request.user_id,
             language=request.language,
@@ -86,7 +86,7 @@ class Orchestrator:
         request: ChatRequest,
     ) -> ChatResponse:
         if request.request_id:
-            cached = session_manager.get_idempotent_response(
+            cached = session_store.get_idempotent_response(
                 session.session_id,
                 request.request_id,
             )
@@ -108,7 +108,7 @@ class Orchestrator:
                 level=self._memory_level(plan),
             )
             if recalled:
-                session_manager.set_user_memory(
+                session_store.set_user_memory(
                     session.session_id,
                     compact_memory(recalled),
                 )
@@ -132,12 +132,12 @@ class Orchestrator:
         # Commit the exchange only after a real response succeeds. This keeps
         # retries idempotent at the session-history level when a provider is
         # temporarily unavailable.
-        session_manager.append(
+        session_store.append(
             session.session_id,
             "user",
             request.message,
         )
-        session_manager.append(
+        session_store.append(
             session.session_id,
             "assistant",
             reply,
@@ -178,7 +178,7 @@ class Orchestrator:
         )
 
         if request.request_id:
-            session_manager.set_idempotent_response(
+            session_store.set_idempotent_response(
                 session.session_id,
                 request.request_id,
                 response,
