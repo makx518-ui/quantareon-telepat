@@ -1,3 +1,5 @@
+from pathlib import Path
+
 def test_modal_deployment_modules_import() -> None:
     import deploy.avatar_gpu as avatar_gpu
     import deploy.modal_app as modal_app
@@ -15,3 +17,10 @@ def test_modal_deployment_modules_import() -> None:
     assert callable(run_avatar_probe.main)
     assert smoke.app is not None
     assert callable(smoke.main)
+
+
+def test_modal_google_genai_spec_matches_requirements() -> None:
+    import deploy.runtime as runtime
+
+    requirements = Path("requirements.txt").read_text(encoding="utf-8")
+    assert runtime.GOOGLE_GENAI_SPEC in requirements
