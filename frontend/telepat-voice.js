@@ -127,7 +127,10 @@
         await this._connectSocket();
         await this._openMicrophone();
         this.active = true;
-        dispatch('state', { state: 'listening' });
+        dispatch('state', {
+          state: 'listening',
+          turnId: message.turn_id || null
+        });
       } catch (error) {
         await this.stop();
         dispatch('error', { stage: 'start', error: String(error) });
@@ -395,7 +398,8 @@
         dispatch('reply', message);
         dispatch('state', {
           state: message.avatar_state || 'thinking',
-          intent: message.intent || ''
+          intent: message.intent || '',
+          turnId: message.turn_id || null
         });
         return;
       }
@@ -410,7 +414,8 @@
         dispatch('audio-start', message);
         dispatch('state', {
           state: 'speaking',
-          avatarState: message.avatar_state || 'speaking'
+          avatarState: message.avatar_state || 'speaking',
+          turnId: message.turn_id || null
         });
         return;
       }
