@@ -5,7 +5,7 @@ import json
 import modal
 
 
-APP_NAME = "quantareon-telepat"
+APP_NAME = "quantareon-telepat-avatar"
 CLASS_NAME = "AvatarGPUWorker"
 
 
