@@ -54,6 +54,7 @@ const context = {
   Date,
   URL,
   ArrayBuffer,
+  Blob,
   Float32Array,
   Int16Array,
   WebSocket: { OPEN: 1 },
@@ -156,6 +157,45 @@ async function main() {
   assert.ok(
     events.some((event) => event.type === 'telepat:reply')
   );
+
+  events.length = 0;
+  client._playMp3 = function (_payload, turnId) {
+    this.testPlayedTurnId = turnId;
+  };
+
+  client._onMessage({
+    data: JSON.stringify({
+      type: 'avatar_start',
+      turn_id: 2,
+      media_type: 'video/mp4',
+      engine: 'fake-avatar',
+      latency_ms: 12.5
+    })
+  });
+  client._onMessage({ data: new ArrayBuffer(16) });
+
+  assert.ok(client.pendingAvatarMedia);
+  assert.strictEqual(client.pendingAvatarMedia.turnId, 2);
+
+  client._onMessage({
+    data: JSON.stringify({
+      type: 'audio_start',
+      turn_id: 2,
+      format: 'mp3'
+    })
+  });
+  client._onMessage({ data: new ArrayBuffer(8) });
+
+  const avatarEvent = events.find(
+    (event) => event.type === 'telepat:avatar-media'
+  );
+  assert.ok(avatarEvent);
+  assert.strictEqual(avatarEvent.detail.turn_id, 2);
+  assert.strictEqual(avatarEvent.detail.media_type, 'video/mp4');
+  assert.strictEqual(avatarEvent.detail.engine, 'fake-avatar');
+  assert.strictEqual(avatarEvent.detail.muted, true);
+  assert.strictEqual(client.pendingAvatarMedia, null);
+  assert.strictEqual(client.testPlayedTurnId, 2);
 
   console.log('TELEPAT frontend voice runtime smoke: ok');
 }
