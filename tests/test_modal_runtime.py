@@ -8,6 +8,7 @@ def test_modal_deployment_modules_import() -> None:
     assert runtime.app is not None
     assert runtime.cpu_image is not None
     assert runtime.gpu_base_image is not None
+    assert avatar_gpu.avatar_app is not None
     assert avatar_gpu.AvatarGPUWorker is not None
     assert modal_app.web is not None
     assert modal_app.provider_probe is not None
