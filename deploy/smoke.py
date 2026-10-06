@@ -34,7 +34,7 @@ smoke_image = (
 )
 
 
-@app.function(image=smoke_image, timeout=180, secrets=provider_secrets)
+@app.function(image=smoke_image, timeout=240, secrets=provider_secrets)
 async def provider_smoke() -> dict[str, object]:
     """Run TELEPAT diagnostics in Modal without requiring provider secrets.
 
