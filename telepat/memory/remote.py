@@ -59,6 +59,117 @@ class RemoteMemoryAdapter:
     def configured(self) -> bool:
         return bool(self.base_url)
 
+    async def probe(self) -> dict[str, Any]:
+        """Exercise the configured Memory API with a dedicated probe identity."""
+        if not self.configured:
+            return {
+                "configured": False,
+                "required": False,
+                "overall_ok": True,
+                "recall": {"skipped": True},
+                "store": {"skipped": True},
+            }
+
+        required = self.recall_enabled and self.store_enabled
+        probe_user = legacy_memory_user_id(
+            "telepat-provider-probe-memory"
+        )
+        headers = self._headers()
+
+        report: dict[str, Any] = {
+            "configured": True,
+            "required": required,
+            "recall": {
+                "skipped": not self.recall_enabled,
+            },
+            "store": {
+                "skipped": not self.store_enabled,
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            if self.recall_enabled:
+                started = perf_counter()
+                try:
+                    response = await client.post(
+                        f"{self.base_url}/api/recall",
+                        json={
+                            "user_id": probe_user,
+                            "message": "TELEPAT provider health probe",
+                            "level": "simple",
+                        },
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+                    response.json()
+                    report["recall"] = {
+                        "ok": True,
+                        "status": response.status_code,
+                    }
+                    runtime_metrics.record(
+                        "memory_probe_recall",
+                        (perf_counter() - started) * 1000,
+                        ok=True,
+                        provider="remote-memory",
+                    )
+                except Exception as exc:
+                    report["recall"] = {
+                        "ok": False,
+                        "error": type(exc).__name__,
+                    }
+                    runtime_metrics.record(
+                        "memory_probe_recall",
+                        (perf_counter() - started) * 1000,
+                        ok=False,
+                        provider="remote-memory",
+                    )
+
+            if self.store_enabled:
+                started = perf_counter()
+                try:
+                    response = await client.post(
+                        f"{self.base_url}/api/store",
+                        json={
+                            "user_id": probe_user,
+                            "message": "TELEPAT provider health probe",
+                            "response": "TELEPAT provider health probe",
+                        },
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+                    report["store"] = {
+                        "ok": True,
+                        "status": response.status_code,
+                    }
+                    runtime_metrics.record(
+                        "memory_probe_store",
+                        (perf_counter() - started) * 1000,
+                        ok=True,
+                        provider="remote-memory",
+                    )
+                except Exception as exc:
+                    report["store"] = {
+                        "ok": False,
+                        "error": type(exc).__name__,
+                    }
+                    runtime_metrics.record(
+                        "memory_probe_store",
+                        (perf_counter() - started) * 1000,
+                        ok=False,
+                        provider="remote-memory",
+                    )
+
+        recall_ok = (
+            not self.recall_enabled
+            or bool(report["recall"].get("ok"))
+        )
+        store_ok = (
+            not self.store_enabled
+            or bool(report["store"].get("ok"))
+        )
+        report["overall_ok"] = recall_ok and store_ok
+        return report
+
     async def recall(
         self,
         *,
