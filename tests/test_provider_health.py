@@ -220,3 +220,28 @@ def test_shared_session_store_removes_single_container_warning(
     readiness = status_module.production_readiness_status()
 
     assert "single_container_session_store" not in readiness["warnings"]
+
+
+
+def test_production_readiness_blocks_invalid_configuration(
+    monkeypatch,
+) -> None:
+    import telepat.api.status as status_module
+
+    monkeypatch.setattr(
+        status_module,
+        "configuration_preflight",
+        lambda: {
+            "ok": False,
+            "errors": ["production_cors_not_restricted"],
+            "warnings": [],
+        },
+    )
+
+    readiness = status_module.production_readiness_status()
+
+    assert "configuration" in readiness["blockers"]
+    assert readiness["configuration"] == {
+        "ok": False,
+        "errors": ["production_cors_not_restricted"],
+    }
