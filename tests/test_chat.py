@@ -168,3 +168,30 @@ def test_chat_idempotency_conflict_returns_409() -> None:
     assert session is not None
     assert len(session.history) == 2
     assert session.history[0].content == "Первый текст"
+
+
+
+def test_chat_returns_503_when_llm_reply_fails_response_policy(
+    monkeypatch,
+) -> None:
+    async def blank_reply(*args, **kwargs):
+        return "   \n\n ", "mock"
+
+    monkeypatch.setattr(llm_router, "generate", blank_reply)
+
+    response = client.post(
+        "/chat",
+        json={
+            "message": "Проверка пустого ответа",
+            "language": "ru",
+            "user_id": "policy-api-user",
+            "session_id": "policy-api-session",
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "conversation_provider_unavailable"
+
+    session = session_store.get("policy-api-session")
+    assert session is not None
+    assert session.history == []
