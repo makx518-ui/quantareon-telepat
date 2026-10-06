@@ -9,9 +9,22 @@ def _csv(name: str, default: str) -> tuple[str, ...]:
     return tuple(item.strip().lower() for item in raw.split(",") if item.strip())
 
 
+def _origins(name: str, default: str) -> tuple[str, ...]:
+    raw = os.getenv(name, default)
+    return tuple(
+        item.strip().rstrip("/")
+        for item in raw.split(",")
+        if item.strip()
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     env: str = os.getenv("TELEPAT_ENV", "development")
+    cors_origins: tuple[str, ...] = _origins(
+        "TELEPAT_CORS_ORIGINS",
+        "*",
+    )
 
     # Visible conversation model is intentionally undecided.
     # "auto" tries configured providers in the declared fallback order.
