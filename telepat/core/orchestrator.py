@@ -11,7 +11,7 @@ from time import perf_counter
 
 from telepat.avatar.director import select_speaking_state
 from telepat.avatar.state_selector import select_avatar_state
-from telepat.llm.router import llm_router
+from telepat.llm.router import ConversationUnavailableError, llm_router
 from telepat.memory.compact import compact_memory
 from telepat.memory.service import memory_adapter
 from telepat.observability.metrics import runtime_metrics
@@ -19,7 +19,7 @@ from telepat.observability.metrics import runtime_metrics
 from .context_builder import build_context_packet, classify_intent
 from .models import ChatRequest, ChatResponse
 from .plan import OrchestrationPlan, build_plan
-from .response_policy import apply_response_policy
+from .response_policy import ResponsePolicyError, apply_response_policy
 from .session_service import session_store
 
 
@@ -147,6 +147,15 @@ class Orchestrator:
         try:
             reply, provider_name = await llm_router.generate(context)
             reply = apply_response_policy(reply).text
+        except ResponsePolicyError as exc:
+            runtime_metrics.record(
+                "turn_total",
+                (perf_counter() - started) * 1000,
+                ok=False,
+            )
+            raise ConversationUnavailableError(
+                "Conversation response failed TELEPAT response policy"
+            ) from exc
         except Exception:
             runtime_metrics.record(
                 "turn_total",
