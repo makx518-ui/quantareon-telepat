@@ -54,8 +54,11 @@ jobs:
         run: python -m modal deploy deploy/avatar_latentsync_benchmark.py
 
       - name: Run L4 benchmark
+        shell: bash
         run: |
-          timeout 1800s python deploy/run_latentsync_benchmark.py             | tee latentsync-benchmark.json
+          set -o pipefail
+          timeout 1800s python -m deploy.run_latentsync_benchmark \
+            | tee latentsync-benchmark.json
 
       - name: Publish benchmark result
         uses: actions/upload-artifact@v4
