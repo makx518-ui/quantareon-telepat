@@ -370,6 +370,19 @@
         return;
       }
 
+      if (type === 'session_end') {
+        this.active = false;
+        this.starting = false;
+        this.stopPlayback();
+        this._cleanupMedia();
+        dispatch('session-end', message);
+        dispatch('state', {
+          state: 'stopped',
+          reason: message.reason || 'session_end'
+        });
+        return;
+      }
+
       if (type === 'audio_unavailable' || type === 'error') {
         dispatch(type === 'error' ? 'error' : 'audio-unavailable', message);
         return;
