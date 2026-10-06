@@ -26,6 +26,8 @@ class MemoryAdapter(Protocol):
         response_text: str,
     ) -> None: ...
 
+    async def probe(self) -> dict[str, Any]: ...
+
 
 class NullMemoryAdapter:
     @property
@@ -49,3 +51,12 @@ class NullMemoryAdapter:
         response_text: str,
     ) -> None:
         return None
+
+    async def probe(self) -> dict[str, Any]:
+        return {
+            "configured": False,
+            "required": False,
+            "overall_ok": True,
+            "recall": {"skipped": True},
+            "store": {"skipped": True},
+        }
