@@ -25,6 +25,7 @@ jobs:
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       TELEPAT_ATTACH_PROVIDER_SECRET: "0"
       TELEPAT_REGISTER_GPU: "0"
+      TELEPAT_BUILD_SHA: ${{ github.sha }}
 
     steps:
       - name: Checkout
