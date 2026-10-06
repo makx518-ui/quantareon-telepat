@@ -34,10 +34,11 @@ musetalk_image = (
     .run_commands(
         "git clone https://github.com/TMElyralab/MuseTalk.git /opt/MuseTalk",
         f"cd /opt/MuseTalk && git checkout {MUSE_TALK_COMMIT}",
+        "pip install --upgrade pip setuptools wheel",
         (
             "pip install torch==2.0.1 torchvision==0.15.2 "
             "torchaudio==2.0.2 "
-            "--index-url https://download.pytorch.org/whl/cu118"
+            "--extra-index-url https://download.pytorch.org/whl/cu118"
         ),
         "pip install -r /opt/MuseTalk/requirements.txt",
         "pip install -U openmim",
