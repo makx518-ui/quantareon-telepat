@@ -112,8 +112,13 @@ jobs:
         continue-on-error: true
         run: python deploy/live_voice_smoke.py
 
+      - name: Live core concurrency smoke
+        id: load_smoke
+        continue-on-error: true
+        run: python deploy/live_load_smoke.py
+
       - name: Modal stderr diagnostics
-        if: steps.live_smoke.outcome == 'failure' || steps.voice_smoke.outcome == 'failure'
+        if: steps.live_smoke.outcome == 'failure' || steps.voice_smoke.outcome == 'failure' || steps.load_smoke.outcome == 'failure'
         shell: bash
         run: |
           CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
@@ -122,5 +127,5 @@ jobs:
             python -m modal app logs quantareon-telepat --tail 200 --source stderr --timestamps || true
 
       - name: Enforce live smoke
-        if: steps.live_smoke.outcome == 'failure' || steps.voice_smoke.outcome == 'failure'
+        if: steps.live_smoke.outcome == 'failure' || steps.voice_smoke.outcome == 'failure' || steps.load_smoke.outcome == 'failure'
         run: exit 1
