@@ -38,6 +38,11 @@ def test_privacy_health_reports_retention_controls() -> None:
     assert data["max_sessions"] > 0
     assert data["max_history_turns"] > 0
 
+    usage_retention = data["usage_retention"]
+    assert usage_retention["ttl_seconds"] > 0
+    assert usage_retention["max_sessions"] > 0
+    assert usage_retention["stores_user_content"] is False
+
     memory = data["memory"]
     assert isinstance(memory["configured"], bool)
     assert isinstance(memory["recall_enabled"], bool)
