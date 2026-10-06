@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - ".github/modal-deploy-trigger"
+  workflow_run:
+    workflows: ["TELEPAT Modal Provider Sync"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -16,6 +19,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     name: Deploy TELEPAT API
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -25,11 +29,13 @@ jobs:
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       TELEPAT_ATTACH_PROVIDER_SECRET: "0"
       TELEPAT_REGISTER_GPU: "0"
-      TELEPAT_BUILD_SHA: ${{ github.sha }}
+      TELEPAT_BUILD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Python 3.12
         uses: actions/setup-python@v5
