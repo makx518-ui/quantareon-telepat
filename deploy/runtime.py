@@ -5,16 +5,12 @@ import os
 import modal
 
 
-# Provider credentials are intentionally optional at deployment time.
-# This lets the TELEPAT API, deterministic Astrofractal and mock fallback run
-# before external provider keys are attached. Once the named Modal Secret
-# exists, deployment can opt in with TELEPAT_ATTACH_PROVIDER_SECRET=1.
+# The named Secret is always attached. Deployment automation guarantees that
+# the container exists (at minimum with a harmless management marker) before
+# Modal hydrates functions. Keeping dependencies unconditional is required by
+# Modal's object graph/hydration model.
 telepat_secret = modal.Secret.from_name("quantareon-telepat-secrets")
-attach_provider_secret = os.getenv(
-    "TELEPAT_ATTACH_PROVIDER_SECRET",
-    "0",
-).strip().lower() in {"1", "true", "yes", "on"}
-provider_secrets = [telepat_secret] if attach_provider_secret else []
+provider_secrets = [telepat_secret]
 
 app = modal.App("quantareon-telepat")
 
