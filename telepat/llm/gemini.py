@@ -42,19 +42,26 @@ class GeminiConversationProvider(ConversationProvider):
 
             usage = getattr(interaction, "usage", None)
 
+            total_input = int(
+                getattr(usage, "total_input_tokens", 0) or 0
+            )
+            cached_input = int(
+                getattr(usage, "total_cached_tokens", 0) or 0
+            )
+            cached_input = min(
+                max(0, cached_input),
+                max(0, total_input),
+            )
+
             return ConversationResult(
                 text=text,
                 model=str(getattr(interaction, "model", None) or model),
                 usage=ProviderUsage(
-                    input_tokens=int(
-                        getattr(usage, "total_input_tokens", 0) or 0
-                    ),
+                    input_tokens=max(0, total_input - cached_input),
                     output_tokens=int(
                         getattr(usage, "total_output_tokens", 0) or 0
                     ),
-                    cached_input_tokens=int(
-                        getattr(usage, "total_cached_tokens", 0) or 0
-                    ),
+                    cached_input_tokens=cached_input,
                     thought_tokens=int(
                         getattr(usage, "total_thought_tokens", 0) or 0
                     ),
