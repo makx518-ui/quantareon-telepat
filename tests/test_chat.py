@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from telepat.api.main import app
+from telepat.core.session_service import session_store
 from telepat.llm.router import ConversationUnavailableError, llm_router
 from telepat.security.rate_limit import rate_limiter
 
@@ -112,3 +113,58 @@ def test_session_usage_requires_matching_user() -> None:
     )
     assert wrong_user.status_code == 404
     assert wrong_user.json()["detail"] == "session_not_found"
+
+
+
+def test_chat_idempotent_retry_returns_cached_response() -> None:
+    payload = {
+        "message": "Один и тот же запрос",
+        "request_id": "idem-api-same",
+        "language": "ru",
+        "user_id": "idem-api-user",
+        "session_id": "idem-api-session",
+    }
+
+    first = client.post("/chat", json=payload)
+    second = client.post("/chat", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json() == first.json()
+
+    session = session_store.get("idem-api-session")
+    assert session is not None
+    assert len(session.history) == 2
+
+
+def test_chat_idempotency_conflict_returns_409() -> None:
+    base = {
+        "request_id": "idem-api-conflict",
+        "language": "ru",
+        "user_id": "idem-conflict-user",
+        "session_id": "idem-conflict-session",
+    }
+
+    first = client.post(
+        "/chat",
+        json={
+            **base,
+            "message": "Первый текст",
+        },
+    )
+    second = client.post(
+        "/chat",
+        json={
+            **base,
+            "message": "Другой текст",
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert second.json()["detail"] == "idempotency_key_conflict"
+
+    session = session_store.get("idem-conflict-session")
+    assert session is not None
+    assert len(session.history) == 2
+    assert session.history[0].content == "Первый текст"
