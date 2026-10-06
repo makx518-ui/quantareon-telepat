@@ -1,12 +1,17 @@
 import pytest
 
 from telepat.core.models import ContextPacket
-from telepat.llm.base import ConversationProvider
+from telepat.llm.base import (
+    ConversationProvider,
+    ConversationResult,
+    ProviderUsage,
+)
 from telepat.llm.router import (
     ConversationUnavailableError,
     LLMRouter,
     llm_router,
 )
+from telepat.observability.usage import usage_registry
 
 
 @pytest.mark.asyncio
@@ -93,3 +98,56 @@ async def test_explicit_mock_remains_available_for_diagnostics() -> None:
 
     assert text
     assert provider == "mock"
+
+
+
+class _UsageProvider(ConversationProvider):
+    name = "usage-provider"
+
+    @property
+    def configured(self) -> bool:
+        return True
+
+    async def generate(
+        self,
+        context: ContextPacket,
+    ) -> ConversationResult:
+        return ConversationResult(
+            text="usage reply",
+            model="usage-model",
+            usage=ProviderUsage(
+                input_tokens=120,
+                output_tokens=30,
+                cached_input_tokens=20,
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_router_records_provider_usage_per_session() -> None:
+    usage_registry.reset()
+    router = LLMRouter()
+    router.register(_UsageProvider())
+
+    context = ContextPacket(
+        session_id="usage-router-session",
+        user_id="usage-router-user",
+        language="ru",
+        current_message="Привет",
+        intent="casual_conversation",
+    )
+
+    text, provider = await router.generate(
+        context,
+        provider="usage-provider",
+    )
+
+    assert text == "usage reply"
+    assert provider == "usage-provider"
+
+    usage = usage_registry.snapshot("usage-router-session")
+    assert usage is not None
+    assert usage["input_tokens"] == 120
+    assert usage["output_tokens"] == 30
+    assert usage["cached_input_tokens"] == 20
+    assert usage["models"] == {"usage-model": 1}
