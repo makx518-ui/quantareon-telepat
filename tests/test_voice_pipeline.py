@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+from telepat.avatar.models import AvatarRenderResult
 from telepat.core.models import ChatResponse
 from telepat.llm.router import ConversationUnavailableError, llm_router
 from telepat.voice.deepgram import DeepgramStreamingSTT, normalize_deepgram_language
@@ -676,3 +677,162 @@ async def test_voice_pre_accept_disconnect_is_clean() -> None:
     await session.run()
 
     assert websocket.messages == []
+
+
+
+@pytest.mark.asyncio
+async def test_voice_turn_delivers_avatar_media_before_audio(
+    monkeypatch,
+) -> None:
+    class _FakeOrchestrator:
+        async def handle_chat(self, request):
+            return ChatResponse(
+                reply="Ответ",
+                request_id=request.request_id,
+                user_id=request.user_id or "u",
+                session_id=request.session_id or "s",
+                intent="casual_conversation",
+                avatar_state="soft_smile",
+                provider="mock",
+            )
+
+    class _FakeTTSRouter:
+        async def synthesize(self, text: str, *, language: str):
+            return b"mp3", "fake-tts"
+
+    class _FakeAvatarService:
+        configured = True
+
+        async def render(self, *, audio: bytes, request):
+            assert audio == b"mp3"
+            assert request.turn_id == 6
+            assert request.state == "soft_smile"
+            return AvatarRenderResult(
+                turn_id=6,
+                media_type="video/mp4",
+                engine="fake-avatar",
+                latency_ms=12.5,
+                data=b"video",
+            )
+
+    monkeypatch.setattr(
+        "telepat.voice.session.orchestrator",
+        _FakeOrchestrator(),
+    )
+    monkeypatch.setattr(
+        "telepat.voice.session.tts_router",
+        _FakeTTSRouter(),
+    )
+    monkeypatch.setattr(
+        "telepat.voice.session.avatar_service",
+        _FakeAvatarService(),
+    )
+
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session._active_turn_id = 6
+
+    await session._respond(
+        "Привет",
+        turn_language="ru",
+        turn_id=6,
+    )
+
+    frame_types = [
+        message["type"]
+        for message in websocket.messages
+        if message.get("type") in {
+            "avatar_start",
+            "avatar_end",
+            "audio_start",
+            "audio_end",
+        }
+    ]
+    assert frame_types == [
+        "avatar_start",
+        "avatar_end",
+        "audio_start",
+        "audio_end",
+    ]
+    assert websocket.binary == [b"video", b"mp3"]
+
+    avatar_start = next(
+        message
+        for message in websocket.messages
+        if message.get("type") == "avatar_start"
+    )
+    assert avatar_start["turn_id"] == 6
+    assert avatar_start["engine"] == "fake-avatar"
+    assert avatar_start["media_type"] == "video/mp4"
+
+
+@pytest.mark.asyncio
+async def test_avatar_render_failure_keeps_audio_fallback(
+    monkeypatch,
+) -> None:
+    class _FakeOrchestrator:
+        async def handle_chat(self, request):
+            return ChatResponse(
+                reply="Ответ",
+                request_id=request.request_id,
+                user_id=request.user_id or "u",
+                session_id=request.session_id or "s",
+                intent="casual_conversation",
+                avatar_state="speaking",
+                provider="mock",
+            )
+
+    class _FakeTTSRouter:
+        async def synthesize(self, text: str, *, language: str):
+            return b"mp3", "fake-tts"
+
+    class _FailAvatarService:
+        configured = True
+
+        async def render(self, *, audio: bytes, request):
+            raise RuntimeError("gpu unavailable")
+
+    monkeypatch.setattr(
+        "telepat.voice.session.orchestrator",
+        _FakeOrchestrator(),
+    )
+    monkeypatch.setattr(
+        "telepat.voice.session.tts_router",
+        _FakeTTSRouter(),
+    )
+    monkeypatch.setattr(
+        "telepat.voice.session.avatar_service",
+        _FailAvatarService(),
+    )
+
+    websocket = _FakeVoiceWebSocket()
+    session = VoiceSession(
+        websocket,
+        user_id="u",
+        session_id="s",
+        language="ru",
+    )
+    session._active_turn_id = 8
+
+    await session._respond(
+        "Привет",
+        turn_language="ru",
+        turn_id=8,
+    )
+
+    unavailable = next(
+        message
+        for message in websocket.messages
+        if message.get("type") == "avatar_unavailable"
+    )
+    assert unavailable["turn_id"] == 8
+    assert websocket.binary == [b"mp3"]
+    assert any(
+        message.get("type") == "audio_start"
+        for message in websocket.messages
+    )
