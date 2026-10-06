@@ -17,6 +17,11 @@ def test_live_voice_smoke_retries_transient_open_timeout(monkeypatch) -> None:
         }
 
     monkeypatch.setattr(live_voice_smoke, "_check_once", fake_check)
+    monkeypatch.setattr(
+        live_voice_smoke,
+        "_provider_status",
+        lambda _base: {},
+    )
     async def fake_sleep(_delay: float) -> None:
         return None
 
