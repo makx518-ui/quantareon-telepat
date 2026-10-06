@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+from time import monotonic
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -50,7 +51,21 @@ class VoiceSession:
         self.max_session_seconds = float(
             os.getenv("TELEPAT_VOICE_MAX_SESSION_SECONDS", "1800")
         )
+        self.max_frame_bytes = int(
+            os.getenv("TELEPAT_VOICE_MAX_FRAME_BYTES", "65536")
+        )
+        self.max_control_chars = int(
+            os.getenv("TELEPAT_VOICE_MAX_CONTROL_CHARS", "4096")
+        )
+        self.max_audio_realtime_factor = float(
+            os.getenv("TELEPAT_VOICE_MAX_REALTIME_FACTOR", "2.0")
+        )
+        self.audio_burst_seconds = float(
+            os.getenv("TELEPAT_VOICE_AUDIO_BURST_SECONDS", "3.0")
+        )
 
+        self._audio_bytes_received = 0
+        self._audio_started_at: float | None = None
         self._transcripts: asyncio.Queue[tuple[str, str]] = asyncio.Queue(
             maxsize=20
         )
@@ -95,6 +110,7 @@ class VoiceSession:
                     "stt_language": self.stt.language,
                     "idle_timeout_seconds": self.idle_timeout_seconds,
                     "max_session_seconds": self.max_session_seconds,
+                    "max_frame_bytes": self.max_frame_bytes,
                 }
             )
 
@@ -178,14 +194,62 @@ class VoiceSession:
 
             audio = event.get("bytes")
             if audio:
+                violation = self._audio_policy_violation(len(audio))
+                if violation:
+                    await self._end_by_policy(
+                        violation,
+                        code=(
+                            1009
+                            if violation == "frame_too_large"
+                            else 1008
+                        ),
+                    )
+                    return
                 await self.stt.send_audio(audio)
                 continue
 
             text = event.get("text")
             if text:
+                if len(text) > self.max_control_chars:
+                    await self._end_by_policy(
+                        "control_too_large",
+                        code=1009,
+                    )
+                    return
                 await self._handle_control(text)
 
-    async def _end_by_policy(self, reason: str) -> None:
+    def _audio_policy_violation(
+        self,
+        frame_size: int,
+        *,
+        now: float | None = None,
+    ) -> str | None:
+        if frame_size > self.max_frame_bytes:
+            return "frame_too_large"
+
+        current = monotonic() if now is None else float(now)
+        if self._audio_started_at is None:
+            self._audio_started_at = current
+
+        self._audio_bytes_received += max(0, int(frame_size))
+        elapsed = max(0.0, current - self._audio_started_at)
+
+        # PCM16 mono 16 kHz = 32,000 bytes of audio per second.
+        allowed_bytes = 32000.0 * (
+            max(0.0, self.audio_burst_seconds)
+            + elapsed * max(0.0, self.max_audio_realtime_factor)
+        )
+
+        if self._audio_bytes_received > allowed_bytes:
+            return "audio_rate_limit"
+        return None
+
+    async def _end_by_policy(
+        self,
+        reason: str,
+        *,
+        code: int = 1000,
+    ) -> None:
         if self._closed:
             return
 
@@ -201,7 +265,7 @@ class VoiceSession:
 
         try:
             await self.websocket.close(
-                code=1000,
+                code=code,
                 reason=reason,
             )
         except Exception:
