@@ -106,3 +106,87 @@ def test_memory_privacy_switches_disable_remote_calls(monkeypatch) -> None:
     assert adapter.store_enabled is False
     assert recalled == {}
     assert stored is None
+
+
+
+class _ProbeResponse:
+    def __init__(self, status_code: int, payload: dict | None = None) -> None:
+        self.status_code = status_code
+        self._payload = payload or {}
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise RuntimeError(f"http {self.status_code}")
+
+    def json(self) -> dict:
+        return self._payload
+
+
+class _ProbeClient:
+    calls: list[str] = []
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    async def __aenter__(self):
+        type(self).calls = []
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def post(self, url: str, **kwargs):
+        type(self).calls.append(url)
+        if url.endswith("/api/recall"):
+            return _ProbeResponse(200, {"context_text": ""})
+        if url.endswith("/api/store"):
+            return _ProbeResponse(200)
+        return _ProbeResponse(404)
+
+
+def test_memory_probe_validates_recall_and_store(monkeypatch) -> None:
+    monkeypatch.setenv("MEMORY_API_URL", "https://memory.example")
+    monkeypatch.setenv("TELEPAT_MEMORY_RECALL_ENABLED", "1")
+    monkeypatch.setenv("TELEPAT_MEMORY_STORE_ENABLED", "1")
+    monkeypatch.setattr(
+        "telepat.memory.remote.httpx.AsyncClient",
+        _ProbeClient,
+    )
+
+    adapter = RemoteMemoryAdapter()
+    report = asyncio.run(adapter.probe())
+
+    assert report["configured"] is True
+    assert report["required"] is True
+    assert report["overall_ok"] is True
+    assert report["recall"]["ok"] is True
+    assert report["store"]["ok"] is True
+    assert _ProbeClient.calls == [
+        "https://memory.example/api/recall",
+        "https://memory.example/api/store",
+    ]
+
+
+def test_memory_probe_does_not_open_network_when_privacy_disabled(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MEMORY_API_URL", "https://memory.example")
+    monkeypatch.setenv("TELEPAT_MEMORY_RECALL_ENABLED", "0")
+    monkeypatch.setenv("TELEPAT_MEMORY_STORE_ENABLED", "0")
+
+    class _ShouldNotOpen:
+        def __init__(self, *args, **kwargs) -> None:
+            raise AssertionError("network client must not be created")
+
+    monkeypatch.setattr(
+        "telepat.memory.remote.httpx.AsyncClient",
+        _ShouldNotOpen,
+    )
+
+    adapter = RemoteMemoryAdapter()
+    report = asyncio.run(adapter.probe())
+
+    assert report["required"] is False
+    assert report["overall_ok"] is True
+    assert report["recall"]["skipped"] is True
+    assert report["store"]["skipped"] is True
