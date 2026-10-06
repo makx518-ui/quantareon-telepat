@@ -104,6 +104,10 @@
       return this._getJson('/health/production-readiness');
     }
 
+    async launchSummary() {
+      return this._getJson('/health/launch-summary');
+    }
+
     async providerContract() {
       return this._getJson('/health/provider-contract');
     }
