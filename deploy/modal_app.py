@@ -21,6 +21,17 @@ def web():
     return fastapi_app
 
 
+@app.function(
+    image=cpu_image,
+    secrets=provider_secrets,
+    timeout=240,
+)
+async def provider_probe() -> dict[str, object]:
+    from telepat.diagnostics.provider_probe import run_provider_probe
+
+    return await run_provider_probe()
+
+
 # GPU registration is intentionally opt-in. Modal accounts without GPU billing
 # must still be able to deploy and test the complete CPU/voice orchestration API.
 register_gpu = os.getenv(
