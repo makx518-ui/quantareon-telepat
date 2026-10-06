@@ -502,6 +502,7 @@ class VoiceSession:
             raise
         except ConversationUnavailableError:
             self._audio_playback_active = False
+            self._playback_turn_id = None
             try:
                 await self.websocket.send_json(
                     {
@@ -515,6 +516,7 @@ class VoiceSession:
                 pass
         except Exception as exc:
             self._audio_playback_active = False
+            self._playback_turn_id = None
             logger.warning(
                 "Voice response failed: %s",
                 type(exc).__name__,
@@ -525,6 +527,7 @@ class VoiceSession:
                         "type": "error",
                         "stage": "response",
                         "message": type(exc).__name__,
+                        "turn_id": turn_id,
                     }
                 )
             except Exception:
