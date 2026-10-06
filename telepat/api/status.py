@@ -325,6 +325,7 @@ def privacy_status() -> dict[str, object]:
     return {
         "metrics_store_user_content": False,
         "rate_limit_identity_hashed": True,
+        "session_reuse_requires_user_id": True,
         "session_store": session_store.kind,
         "session_ttl_seconds": session_store.ttl_seconds,
         "max_sessions": session_store.max_sessions,
