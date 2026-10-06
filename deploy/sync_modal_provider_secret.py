@@ -59,6 +59,7 @@ PROVIDER_KEYS = (
     "TELEPAT_MAX_SESSIONS",
     "TELEPAT_MAX_HISTORY_TURNS",
     "TELEPAT_USAGE_MAX_SESSIONS",
+    "TELEPAT_USAGE_TTL_SECONDS",
     "TELEPAT_COST_RATES_JSON",
 
     # Avatar readiness metadata. GPU registration remains a deploy concern.
