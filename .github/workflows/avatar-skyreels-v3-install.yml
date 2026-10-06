@@ -34,7 +34,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Modal CLI
-        run: pip install "modal>=1.6,<2"
+        run: pip install "modal>=1.6,<2" "huggingface_hub>=0.36,<1"
 
       - name: Normalize Modal auth
         shell: bash
