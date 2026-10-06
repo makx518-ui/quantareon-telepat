@@ -5,10 +5,13 @@ import inspect
 import json
 import logging
 import os
+from time import perf_counter
 from collections.abc import Awaitable, Callable
 from urllib.parse import urlencode
 
 import websockets
+
+from telepat.observability.metrics import runtime_metrics
 
 
 logger = logging.getLogger(__name__)
@@ -123,22 +126,38 @@ class DeepgramStreamingSTT:
             raise RuntimeError("DEEPGRAM_API_KEY is not configured")
 
         headers = {"Authorization": f"Token {self.api_key}"}
+        started = perf_counter()
         try:
-            self._ws = await websockets.connect(
-                self._url(),
-                additional_headers=headers,
-                ping_interval=20,
-                ping_timeout=20,
+            try:
+                self._ws = await websockets.connect(
+                    self._url(),
+                    additional_headers=headers,
+                    ping_interval=20,
+                    ping_timeout=20,
+                )
+            except TypeError:
+                # websockets 12-13 compatibility
+                self._ws = await websockets.connect(
+                    self._url(),
+                    extra_headers=headers,
+                    ping_interval=20,
+                    ping_timeout=20,
+                )
+        except Exception:
+            runtime_metrics.record(
+                "stt_connect",
+                (perf_counter() - started) * 1000,
+                ok=False,
+                provider="deepgram",
             )
-        except TypeError:
-            # websockets 12-13 compatibility
-            self._ws = await websockets.connect(
-                self._url(),
-                extra_headers=headers,
-                ping_interval=20,
-                ping_timeout=20,
-            )
+            raise
 
+        runtime_metrics.record(
+            "stt_connect",
+            (perf_counter() - started) * 1000,
+            ok=True,
+            provider="deepgram",
+        )
         self._connected = True
         self._closing = False
         self._receive_task = asyncio.create_task(self._receive_loop())
