@@ -112,8 +112,10 @@ class SessionManager:
             if session_id and session_id in self._sessions:
                 session = self._sessions[session_id]
 
-                # Never attach one browser identity to another user's session.
-                if user_id and session.user_id != user_id:
+                # Reusing an existing session requires both identifiers.
+                # session_id alone is not treated as authorization to attach
+                # to state that belongs to another browser identity.
+                if not user_id or session.user_id != user_id:
                     session_id = None
                 else:
                     if language:
