@@ -53,6 +53,7 @@
       this.language = options.language
         || document.documentElement.lang
         || 'ru';
+      this.voiceLanguage = options.voiceLanguage || 'auto';
       this.birth = options.birth || null;
 
       this.session = null;
@@ -119,7 +120,7 @@
       if (this.voice) {
         this.voice.userId = session.user_id;
         this.voice.sessionId = session.session_id;
-        this.voice.language = session.language || this.language;
+        this.voice.language = this.voiceLanguage;
       }
 
       dispatch('ready', {
@@ -159,7 +160,7 @@
 
       const session = this.session || {};
       this.voice = global.TelepatVoice.create({
-        language: session.language || this.language,
+        language: this.voiceLanguage,
         wsUrl: this.wsUrl,
         userId: session.user_id || undefined,
         sessionId: session.session_id || undefined
@@ -178,7 +179,7 @@
       const voice = this._ensureVoice();
       voice.userId = this.session.user_id;
       voice.sessionId = this.session.session_id;
-      voice.language = this.session.language || this.language;
+      voice.language = this.voiceLanguage;
 
       await voice.start();
       return voice;
