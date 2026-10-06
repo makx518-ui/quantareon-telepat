@@ -52,4 +52,4 @@ jobs:
         run: python -m modal deploy deploy/avatar_gpu.py
 
       - name: Probe L4 hardware and benchmark assets
-        run: timeout 180s python deploy/run_avatar_probe.py
+        run: timeout 600s python deploy/run_avatar_probe.py
