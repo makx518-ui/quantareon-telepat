@@ -206,6 +206,7 @@ route details:
 ```js
 const readiness = await telepat.readiness();
 const production = await telepat.productionReadiness();
+const launch = await telepat.launchSummary();
 const providers = await telepat.providerContract();
 ```
 
@@ -219,3 +220,8 @@ const usage = await telepat.usage();
 It never exposes another session's counters. Pricing is reported only for model
 ids configured in `TELEPAT_COST_RATES_JSON`; unknown models remain explicitly
 unpriced instead of using guessed rates.
+
+
+`telepat.launchSummary()` is the preferred one-call gate before enabling the
+full production experience. It groups runtime/config/provider/avatar blockers
+without exposing credential values or user content.
