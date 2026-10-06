@@ -59,6 +59,17 @@ skyreels_image = (
         "git clone https://github.com/SkyworkAI/SkyReels-V3.git "
         f"{SKYREELS_REPO}",
         f"cd {SKYREELS_REPO} && git checkout {SKYREELS_COMMIT}",
+        (
+            "python -c \"from pathlib import Path; "
+            "p=Path('/opt/SkyReels-V3/skyreels_v3/modules/clip.py'); "
+            "s=p.read_text(); "
+            "s=s.replace('from .attention import flash_attention', "
+            "'from .attention import attention'); "
+            "s=s.replace('x = flash_attention(q, k, v, dropout_p=p, "
+            "causal=self.causal, version=2)', "
+            "'x = attention(q, k, v, dropout_p=p, causal=self.causal)'); "
+            "p.write_text(s)\""
+        ),
         "python -m pip install --upgrade pip setuptools wheel ninja packaging",
         "pip install torch==2.8.0 torchvision==0.23.0",
         (
