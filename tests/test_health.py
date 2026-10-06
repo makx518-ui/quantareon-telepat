@@ -12,6 +12,8 @@ def test_health() -> None:
     data = response.json()
     assert data["ok"] is True
     assert data["version"] == "0.4.0"
+    assert isinstance(data["build_sha"], str)
+    assert data["build_sha"]
 
 
 
