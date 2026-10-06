@@ -217,6 +217,15 @@
       }
     }
 
+    async setAvatarLiveMedia(media, options) {
+      if (!this.avatar) {
+        throw new Error(
+          'TELEPAT avatar must be configured before setting live media'
+        );
+      }
+      return this.avatar.setLiveMedia(media, options || {});
+    }
+
     async reconnectVoice() {
       await this.stopVoice();
       return this.startVoice();
