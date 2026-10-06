@@ -11,6 +11,19 @@ from .base import ConversationProvider, ConversationResult, ProviderUsage
 from .prompt import build_chat_messages
 
 
+def _normalize_groq_usage(usage: dict) -> ProviderUsage:
+    prompt_details = usage.get("prompt_tokens_details") or {}
+    total_input = int(usage.get("prompt_tokens") or 0)
+    cached_input = int(prompt_details.get("cached_tokens") or 0)
+    cached_input = min(max(0, cached_input), max(0, total_input))
+
+    return ProviderUsage(
+        input_tokens=max(0, total_input - cached_input),
+        output_tokens=int(usage.get("completion_tokens") or 0),
+        cached_input_tokens=cached_input,
+    )
+
+
 class GroqConversationProvider(ConversationProvider):
     name = "groq"
     endpoint = "https://api.groq.com/openai/v1/chat/completions"
@@ -53,18 +66,9 @@ class GroqConversationProvider(ConversationProvider):
             raise RuntimeError("Groq returned an empty response")
 
         usage = data.get("usage") or {}
-        prompt_details = usage.get("prompt_tokens_details") or {}
-
-        total_input = int(usage.get("prompt_tokens") or 0)
-        cached_input = int(prompt_details.get("cached_tokens") or 0)
-        cached_input = min(max(0, cached_input), max(0, total_input))
 
         return ConversationResult(
             text=text,
             model=model,
-            usage=ProviderUsage(
-                input_tokens=max(0, total_input - cached_input),
-                output_tokens=int(usage.get("completion_tokens") or 0),
-                cached_input_tokens=cached_input,
-            ),
+            usage=_normalize_groq_usage(usage),
         )
