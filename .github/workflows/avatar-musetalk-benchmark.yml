@@ -1,0 +1,66 @@
+name: TELEPAT MuseTalk L4 Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/musetalk-benchmark-trigger"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telepat-musetalk-l4-benchmark
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    name: Benchmark MuseTalk 1.5 on Modal L4
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      TELEPAT_AVATAR_BENCHMARK_RUNS: "3"
+      TELEPAT_AVATAR_BENCHMARK_WARMUPS: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal CLI
+        run: pip install "modal>=1.6,<2"
+
+      - name: Normalize Modal auth
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+          echo "::add-mask::$CLEAN_ID"
+          echo "::add-mask::$CLEAN_SECRET"
+          echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
+          echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
+
+      - name: Deploy pinned MuseTalk benchmark app
+        run: python -m modal deploy deploy/avatar_musetalk_benchmark.py
+
+      - name: Run L4 benchmark
+        run: |
+          timeout 1200s python deploy/run_musetalk_benchmark.py             | tee musetalk-benchmark.json
+
+      - name: Publish benchmark result
+        uses: actions/upload-artifact@v4
+        with:
+          name: telepat-musetalk-l4-benchmark
+          path: musetalk-benchmark.json
+          if-no-files-found: error
+          retention-days: 14
