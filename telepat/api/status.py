@@ -236,6 +236,21 @@ def production_readiness_status() -> dict[str, object]:
     ).strip().lower() in {"1", "true", "yes", "on"}
 
     blockers: list[str] = []
+    warnings: list[str] = []
+
+    production_mode = settings.env.strip().lower() == "production"
+    cors_ready = (
+        not production_mode
+        or "*" not in settings.cors_origins
+    )
+    cost_rates_raw = os.getenv(
+        "TELEPAT_COST_RATES_JSON",
+        "",
+    ).strip()
+    cost_rates_configured = bool(
+        cost_rates_raw
+        and cost_rates_raw != "{}"
+    )
 
     if not readiness["conversation_ready"]:
         blockers.append("conversation_provider")
@@ -251,10 +266,19 @@ def production_readiness_status() -> dict[str, object]:
         blockers.append("avatar_engine")
     if not avatar_gpu_enabled:
         blockers.append("avatar_gpu")
+    if not cors_ready:
+        blockers.append("cors_policy")
+
+    if readiness["conversation_ready"] and not cost_rates_configured:
+        warnings.append("llm_cost_rates_unconfigured")
+    if production_mode:
+        warnings.append("single_container_session_store")
 
     return {
         "ready": not blockers,
         "blockers": blockers,
+        "warnings": warnings,
+        "environment": settings.env,
         "capabilities": {
             "conversation": readiness["conversation_ready"],
             "astrofractal_engine": True,
@@ -264,6 +288,8 @@ def production_readiness_status() -> dict[str, object]:
             "memory": readiness["memory_ready"],
             "avatar_engine": bool(avatar_engine),
             "avatar_gpu": avatar_gpu_enabled,
+            "cors_policy": cors_ready,
+            "llm_cost_rates": cost_rates_configured,
         },
         "avatar": {
             "engine": avatar_engine or None,
