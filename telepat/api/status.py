@@ -201,3 +201,50 @@ def provider_contract() -> dict[str, object]:
             },
         },
     }
+
+
+def production_readiness_status() -> dict[str, object]:
+    """Return the remaining runtime blockers for a complete TELEPAT product."""
+    readiness = readiness_status()
+
+    avatar_engine = os.getenv("TELEPAT_AVATAR_ENGINE", "").strip()
+    avatar_gpu_enabled = os.getenv(
+        "TELEPAT_AVATAR_GPU_ENABLED",
+        "0",
+    ).strip().lower() in {"1", "true", "yes", "on"}
+
+    blockers: list[str] = []
+
+    if not readiness["conversation_ready"]:
+        blockers.append("conversation_provider")
+    if not readiness["astro_interpreter_ready"]:
+        blockers.append("astro_interpreter")
+    if not readiness["voice_input_ready"]:
+        blockers.append("voice_input")
+    if not readiness["voice_output_ready"]:
+        blockers.append("voice_output")
+    if not readiness["memory_ready"]:
+        blockers.append("memory")
+    if not avatar_engine:
+        blockers.append("avatar_engine")
+    if not avatar_gpu_enabled:
+        blockers.append("avatar_gpu")
+
+    return {
+        "ready": not blockers,
+        "blockers": blockers,
+        "capabilities": {
+            "conversation": readiness["conversation_ready"],
+            "astrofractal_engine": True,
+            "astro_interpreter": readiness["astro_interpreter_ready"],
+            "voice_input": readiness["voice_input_ready"],
+            "voice_output": readiness["voice_output_ready"],
+            "memory": readiness["memory_ready"],
+            "avatar_engine": bool(avatar_engine),
+            "avatar_gpu": avatar_gpu_enabled,
+        },
+        "avatar": {
+            "engine": avatar_engine or None,
+            "gpu_enabled": avatar_gpu_enabled,
+        },
+    }
