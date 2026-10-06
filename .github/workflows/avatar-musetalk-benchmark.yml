@@ -54,8 +54,11 @@ jobs:
         run: python -m modal deploy deploy/avatar_musetalk_benchmark.py
 
       - name: Run L4 benchmark
+        shell: bash
         run: |
-          timeout 1200s python deploy/run_musetalk_benchmark.py             | tee musetalk-benchmark.json
+          set -o pipefail
+          timeout 1200s python -m deploy.run_musetalk_benchmark \
+            | tee musetalk-benchmark.json
 
       - name: Publish benchmark result
         uses: actions/upload-artifact@v4
