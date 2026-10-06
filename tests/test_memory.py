@@ -1,6 +1,7 @@
 from telepat.memory.adapter import MemoryAdapter
 from telepat.memory.compact import compact_memory
 from telepat.memory.identity import legacy_memory_user_id
+from telepat.memory.remote import RemoteMemoryAdapter
 from telepat.memory.service import memory_adapter
 
 
@@ -39,3 +40,30 @@ def test_compact_memory_limits_payload() -> None:
 
 def test_memory_service_implements_adapter_contract() -> None:
     assert isinstance(memory_adapter, MemoryAdapter)
+
+
+
+def test_memory_api_bearer_auth_header(monkeypatch) -> None:
+    monkeypatch.setenv("MEMORY_API_URL", "https://memory.example")
+    monkeypatch.setenv("MEMORY_API_KEY", "test-key")
+    monkeypatch.setenv("MEMORY_API_AUTH_HEADER", "Authorization")
+    monkeypatch.setenv("MEMORY_API_AUTH_SCHEME", "Bearer")
+
+    adapter = RemoteMemoryAdapter()
+
+    assert adapter._headers() == {
+        "Authorization": "Bearer test-key",
+    }
+
+
+def test_memory_api_custom_header_without_scheme(monkeypatch) -> None:
+    monkeypatch.setenv("MEMORY_API_URL", "https://memory.example")
+    monkeypatch.setenv("MEMORY_API_KEY", "test-key")
+    monkeypatch.setenv("MEMORY_API_AUTH_HEADER", "X-API-Key")
+    monkeypatch.setenv("MEMORY_API_AUTH_SCHEME", "")
+
+    adapter = RemoteMemoryAdapter()
+
+    assert adapter._headers() == {
+        "X-API-Key": "test-key",
+    }
