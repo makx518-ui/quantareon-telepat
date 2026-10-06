@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import http.client
 import json
 import os
 import statistics
@@ -81,7 +82,13 @@ def one_chat(
             )
             last_error = None
             break
-        except (TimeoutError, urllib.error.URLError) as exc:
+        except (
+            TimeoutError,
+            urllib.error.URLError,
+            http.client.RemoteDisconnected,
+            ConnectionResetError,
+            ConnectionAbortedError,
+        ) as exc:
             last_error = exc
             if attempt >= transport_retries:
                 break
