@@ -25,7 +25,7 @@ Goal: text request -> TELEPAT text response.
 
 Runtime status:
 - deterministic/core path works in Modal
-- real conversation provider waits for provider credentials
+- real Groq conversation provider is operational
 
 ## Phase 2 — Astrofractal
 Goal: TELEPAT can reason from the current Astrofractal method.
@@ -41,7 +41,7 @@ Goal: TELEPAT can reason from the current Astrofractal method.
 - [x] real deterministic Astrofractal calculation in Modal
 
 Runtime gate:
-- [ ] real Gemini Astro interpretation in Modal
+- [x] real Gemini Astro interpretation in Modal
 
 ## Phase 3 — Psychology
 Goal: responses sound like a competent calm astropsychologist.
@@ -72,7 +72,7 @@ context.
 Memory readiness:
 - [x] configurable Memory API authentication header/scheme
 - [x] operational provider-probe contract for recall/store
-- [ ] validate recall/store against the actual production Memory server
+- [x] validate recall/store against the actual production Memory server
 - [ ] tune fact/summary policy from real sessions
 - [ ] move shared session state out of in-process memory when scaling beyond one CPU container
 
@@ -101,9 +101,10 @@ Goal: full duplex spoken conversation without GPU avatar rendering.
 - [x] voice pacing/frame-size/control-size guards
 
 Runtime gates:
-- [ ] real Deepgram connection
-- [ ] real TTS generation
-- [ ] browser microphone -> STT -> LLM -> TTS
+- [x] real Deepgram connection
+- [x] real TTS generation
+- [x] automated real speech -> STT -> LLM -> TTS WebSocket E2E turn
+- [ ] human browser microphone -> STT -> LLM -> TTS
 - [ ] real interruption test during playback
 
 ## Phase 6 — Avatar GPU
@@ -120,9 +121,11 @@ Goal: TELEPAT speaks through the final fixed character.
 - [x] separate CPU/GPU Modal apps
 - [x] deployed GPU hardware/assets preflight runner
 - [ ] enable L4 access/billing in Modal
+- [x] prepare MuseTalk 1.5 behind AvatarAdapter and benchmark worker
+- [x] prepare LatentSync 1.6 behind AvatarAdapter and benchmark worker
 - [ ] benchmark candidate lip-sync engines on real L4
 - [ ] select the winning engine
-- [ ] install it behind AvatarAdapter
+- [ ] promote the winning adapter into production AvatarService
 - [ ] audio -> lip-sync render
 - [ ] latency/VRAM measurements
 
@@ -166,13 +169,14 @@ Goal: production TELEPAT experience in `quantareon-site`.
 
 ## Immediate execution order
 
-1. Attach real provider credentials to Modal.
-2. Validate Astrofractal -> Gemini -> cached AstroSummary.
-3. Validate real conversation LLM through the router.
-4. Validate Deepgram -> LLM -> Ermil/Andrew and real barge-in.
-5. Attach/validate the existing Memory API.
-6. Enable Modal L4 and benchmark avatar/lip-sync candidates.
+1. Enable Modal L4 billing/payment access.
+2. Run GPU preflight against seeded benchmark assets.
+3. Benchmark MuseTalk 1.5 on L4.
+4. Benchmark LatentSync 1.6 on the same L4/input.
+5. Select/promote the winning AvatarAdapter.
+6. Validate real avatar media handoff over the existing voice WebSocket.
 7. Connect the finished runtime to `quantareon-site`.
+8. Run human microphone/barge-in/mobile validation.
 
 ## Non-goals for first release
 
