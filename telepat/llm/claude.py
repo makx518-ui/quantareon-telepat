@@ -9,7 +9,7 @@ from telepat.config.prompt_loader import load_prompt
 from telepat.config.settings import settings
 from telepat.core.models import ContextPacket
 
-from .base import ConversationProvider
+from .base import ConversationProvider, ConversationResult, ProviderUsage
 from .prompt import build_context_payload
 
 
@@ -38,7 +38,7 @@ class ClaudeConversationProvider(ConversationProvider):
             and (settings.model_for("claude", settings.claude_model))
         )
 
-    async def generate(self, context: ContextPacket) -> str:
+    async def generate(self, context: ContextPacket) -> ConversationResult:
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise RuntimeError("ANTHROPIC_API_KEY is not configured")
         if not (settings.model_for("claude", settings.claude_model)):
@@ -77,4 +77,17 @@ class ClaudeConversationProvider(ConversationProvider):
         text = _extract_claude_text(data)
         if not text:
             raise RuntimeError("Claude returned an empty response")
-        return text
+
+        usage = data.get("usage") or {}
+
+        return ConversationResult(
+            text=text,
+            model=model,
+            usage=ProviderUsage(
+                input_tokens=int(usage.get("input_tokens") or 0),
+                output_tokens=int(usage.get("output_tokens") or 0),
+                cached_input_tokens=int(
+                    usage.get("cache_read_input_tokens") or 0
+                ),
+            ),
+        )
