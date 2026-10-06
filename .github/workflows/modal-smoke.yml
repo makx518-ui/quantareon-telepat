@@ -27,7 +27,6 @@ jobs:
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-      TELEPAT_ATTACH_PROVIDER_SECRET: "0"
       TELEPAT_AVATAR_GPU_ENABLED: ${{ secrets.TELEPAT_AVATAR_GPU_ENABLED || '0' }}
 
     steps:
@@ -47,41 +46,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install "modal>=1.6,<2"
 
-      - name: Detect TELEPAT provider secret
+      - name: Normalize Modal auth
         shell: bash
         run: |
           CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
           CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
           test -n "$CLEAN_ID"
           test -n "$CLEAN_SECRET"
-
-          MODAL_TOKEN_ID="$CLEAN_ID" MODAL_TOKEN_SECRET="$CLEAN_SECRET" \
-            python -m modal secret list --json > modal-secrets.json
-
-          python - <<'PY'
-          import json, os
-
-          with open("modal-secrets.json", encoding="utf-8") as fh:
-              data = json.load(fh)
-
-          def contains_name(value):
-              if isinstance(value, dict):
-                  if value.get("name") == "quantareon-telepat-secrets":
-                      return True
-                  return any(contains_name(item) for item in value.values())
-              if isinstance(value, list):
-                  return any(contains_name(item) for item in value)
-              return value == "quantareon-telepat-secrets"
-
-          attach = contains_name(data)
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
-              fh.write(
-                  "TELEPAT_ATTACH_PROVIDER_SECRET="
-                  + ("1" if attach else "0")
-                  + "\n"
-              )
-          print("Provider secret:", "attached" if attach else "not present")
-          PY
+          echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
+          echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
 
       - name: Run deployed TELEPAT provider probe
         shell: bash
