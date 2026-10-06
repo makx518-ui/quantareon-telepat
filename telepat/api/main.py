@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from telepat import __version__
 from telepat.api.session import (
     SessionBootstrapRequest,
     SessionBootstrapResponse,
@@ -48,7 +49,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     title="QUANTAREON TELEPAT",
-    version="0.4.0",
+    version=__version__,
     description="Live AI astropsychologist integration backend.",
 )
 
@@ -79,7 +80,7 @@ async def health() -> dict[str, object]:
     return {
         "ok": True,
         "service": "quantareon-telepat",
-        "version": "0.4.0",
+        "version": __version__,
         "build_sha": os.getenv("TELEPAT_BUILD_SHA", "local"),
         "phase": 5,
         "features": {
