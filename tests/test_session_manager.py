@@ -107,3 +107,41 @@ def test_oldest_session_is_evicted_when_capacity_is_reached() -> None:
     assert manager.get("one") is None
     assert manager.get("two") is not None
     assert manager.get("three") is not None
+
+
+
+def test_idempotency_cache_is_bounded_lru() -> None:
+    from telepat.core.models import ChatResponse
+
+    manager = SessionManager(
+        ttl_seconds=100,
+        max_sessions=10,
+        max_history_turns=10,
+        max_idempotency_entries=2,
+    )
+    session = manager.get_or_create(
+        session_id="idem",
+        user_id="u",
+        language="ru",
+    )
+
+    def response(request_id: str) -> ChatResponse:
+        return ChatResponse(
+            reply=request_id,
+            request_id=request_id,
+            user_id=session.user_id,
+            session_id=session.session_id,
+            intent="casual_conversation",
+        )
+
+    manager.set_idempotent_response("idem", "a", response("a"))
+    manager.set_idempotent_response("idem", "b", response("b"))
+
+    # Touch "a" so "b" becomes least-recently-used.
+    assert manager.get_idempotent_response("idem", "a") is not None
+
+    manager.set_idempotent_response("idem", "c", response("c"))
+
+    assert manager.get_idempotent_response("idem", "a") is not None
+    assert manager.get_idempotent_response("idem", "b") is None
+    assert manager.get_idempotent_response("idem", "c") is not None
