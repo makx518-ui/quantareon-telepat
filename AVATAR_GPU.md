@@ -90,3 +90,22 @@ The existing donor `quantareon-site/telepat-video-ru.mp4` can be used as a
 temporary source during infrastructure checks, but it is **not** automatically
 declared the final production lip-sync source. The final fixed TELEPAT source
 must be chosen explicitly before visual scoring.
+
+
+## GPU preflight
+
+When `TELEPAT_AVATAR_GPU_ENABLED=1`, Modal registers
+`AvatarGPUWorker` on L4.
+
+`AvatarGPUWorker.probe()` reports:
+
+- actual GPU name returned by `nvidia-smi`
+- total/free VRAM
+- selected `TELEPAT_AVATAR_ENGINE`
+- benchmark asset status
+- combined `benchmark_ready` flag
+
+The GitHub provider-smoke workflow calls the deployed worker through
+`deploy/run_avatar_probe.py`. GPU hardware readiness is therefore tested
+separately from CPU/voice readiness, while production readiness still requires
+both an engine id and the GPU-enabled flag.
