@@ -74,3 +74,97 @@ async def test_orchestrator_drains_tracked_background_tasks() -> None:
     assert task.done()
     assert completed == ["done"]
     assert local._background_tasks == set()
+
+
+
+@pytest.mark.asyncio
+async def test_same_session_turns_are_serialized(monkeypatch) -> None:
+    local = Orchestrator()
+    active = 0
+    max_active = 0
+
+    async def slow_generate(context, **kwargs):
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        await asyncio.sleep(0.02)
+        active -= 1
+        return f"reply:{context.current_message}", "mock"
+
+    monkeypatch.setattr(llm_router, "generate", slow_generate)
+
+    first = ChatRequest(
+        message="one",
+        user_id="lock-user",
+        session_id="same-lock-session",
+        language="ru",
+    )
+    second = ChatRequest(
+        message="two",
+        user_id="lock-user",
+        session_id="same-lock-session",
+        language="ru",
+    )
+
+    replies = await asyncio.gather(
+        local.handle_chat(first),
+        local.handle_chat(second),
+    )
+
+    assert max_active == 1
+    assert [item.reply for item in replies] == [
+        "reply:one",
+        "reply:two",
+    ]
+
+    session = session_manager.get("same-lock-session")
+    assert session is not None
+    assert [turn.content for turn in session.history[-4:]] == [
+        "one",
+        "reply:one",
+        "two",
+        "reply:two",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_different_sessions_can_run_concurrently(monkeypatch) -> None:
+    local = Orchestrator()
+    active = 0
+    max_active = 0
+    both_started = asyncio.Event()
+
+    async def slow_generate(context, **kwargs):
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        if active >= 2:
+            both_started.set()
+        try:
+            await asyncio.wait_for(both_started.wait(), timeout=0.2)
+        finally:
+            active -= 1
+        return "reply", "mock"
+
+    monkeypatch.setattr(llm_router, "generate", slow_generate)
+
+    await asyncio.gather(
+        local.handle_chat(
+            ChatRequest(
+                message="one",
+                user_id="parallel-a",
+                session_id="parallel-session-a",
+                language="ru",
+            )
+        ),
+        local.handle_chat(
+            ChatRequest(
+                message="two",
+                user_id="parallel-b",
+                session_id="parallel-session-b",
+                language="ru",
+            )
+        ),
+    )
+
+    assert max_active == 2
