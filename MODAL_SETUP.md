@@ -112,12 +112,18 @@ in-memory processes.
 
 ## GPU runtime
 
-L4 registration is intentionally opt-in:
+L4 registration is intentionally opt-in through one GitHub/Modal runtime flag:
 
-`TELEPAT_REGISTER_GPU=1`
+`TELEPAT_AVATAR_GPU_ENABLED=1`
 
-The CPU backend deploys without GPU access. This prevents L4 billing/account
-requirements from blocking development of the conversation and voice stack.
+The deploy workflow maps this flag to the deploy-time
+`TELEPAT_REGISTER_GPU` switch, while the same value is synced into the runtime
+secret for production-readiness reporting.
 
-Enable GPU registration only when L4 access is ready and the lip-sync benchmark
+The CPU backend deploys without GPU access while the flag is unset/false. When
+enabled, the provider-smoke workflow also runs `deploy/run_avatar_probe.py`,
+which looks up the deployed `AvatarGPUWorker` with Modal `Cls.from_name` and
+checks real GPU availability/assets without hard-coding a lip-sync engine.
+
+Enable the flag only when L4 access/billing is ready and the avatar benchmark
 starts.
