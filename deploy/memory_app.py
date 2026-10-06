@@ -4,10 +4,6 @@ import os
 
 import modal
 
-from telepat.memory_api.api import create_memory_app
-from telepat.memory_api.store import SQLiteMemoryStore
-
-
 app = modal.App("quantareon-telepat-memory")
 memory_volume = modal.Volume.from_name(
     "quantareon-telepat-memory",
@@ -38,6 +34,9 @@ memory_image = (
 )
 @modal.asgi_app()
 def web():
+    from telepat.memory_api.api import create_memory_app
+    from telepat.memory_api.store import SQLiteMemoryStore
+
     store = SQLiteMemoryStore(
         "/memory-data/telepat-memory.sqlite3",
         max_exchanges_per_user=int(
