@@ -35,6 +35,7 @@ def test_privacy_health_reports_retention_controls() -> None:
 
     assert data["metrics_store_user_content"] is False
     assert data["rate_limit_identity_hashed"] is True
+    assert data["session_reuse_requires_user_id"] is True
     assert data["session_store"] == "in_process"
     assert data["session_ttl_seconds"] > 0
     assert data["max_sessions"] > 0
