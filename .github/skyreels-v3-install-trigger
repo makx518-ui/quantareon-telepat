@@ -6,3 +6,4 @@ retry official A2V-19B model id
 redeploy with PyAV dependency
 redeploy CLIP SDPA fallback
 redeploy full SDPA fallback
+redeploy attention fa_version compatibility fix
