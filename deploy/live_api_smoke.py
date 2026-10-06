@@ -76,6 +76,13 @@ def main() -> None:
     else:
         raise SystemExit(f"Health check failed: {last}")
 
+    expected_build_sha = os.getenv("TELEPAT_BUILD_SHA", "").strip()
+    if expected_build_sha:
+        assert health.get("build_sha") == expected_build_sha, (
+            health.get("build_sha"),
+            expected_build_sha,
+        )
+
     status, providers = request_json(
         "GET",
         base + "/health/providers",
