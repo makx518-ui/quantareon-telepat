@@ -115,6 +115,15 @@ def main() -> None:
     assert isinstance(production["ready"], bool)
     assert isinstance(production["blockers"], list)
 
+    smoke_suffix = (
+        os.getenv("TELEPAT_BUILD_SHA", "local")
+        .strip()
+        .replace("/", "-")[:24]
+        or "local"
+    )
+    smoke_user_id = f"live-smoke-user-{smoke_suffix}"
+    smoke_session_id = f"live-smoke-session-{smoke_suffix}"
+
     birth = {
         "year": 2000,
         "month": 1,
@@ -131,9 +140,12 @@ def main() -> None:
         base + "/session/bootstrap",
         {
             "language": "ru",
+            "user_id": smoke_user_id,
+            "session_id": smoke_session_id,
             "birth": birth,
         },
         timeout=60,
+        transport_retries=3,
     )
     assert status == 200, (status, bootstrap)
     assert bootstrap["user_id"]
@@ -153,6 +165,7 @@ def main() -> None:
                 "birth": birth,
             },
             timeout=60,
+            transport_retries=3,
         )
         assert status == 200, (status, cached_bootstrap)
         assert cached_bootstrap["astro_ready"] is True
@@ -168,6 +181,7 @@ def main() -> None:
                 "birth": birth,
             },
             timeout=60,
+            transport_retries=3,
         )
         assert status == 200, (status, astro)
         assert astro["summary"]["provider"] == "gemini"
@@ -181,16 +195,19 @@ def main() -> None:
         base + "/chat",
         {
             "message": "Привет, TELEPAT.",
+            "request_id": f"live-smoke-chat-{smoke_suffix}",
             "language": "ru",
             "user_id": bootstrap["user_id"],
             "session_id": bootstrap["session_id"],
         },
         timeout=60,
+        transport_retries=3,
     )
     assert status == 200, (status, chat)
     assert chat["reply"]
     assert chat["user_id"] == bootstrap["user_id"]
     assert chat["session_id"] == bootstrap["session_id"]
+    assert chat["request_id"] == f"live-smoke-chat-{smoke_suffix}"
 
     if readiness["conversation_ready"]:
         assert chat["provider"] != "mock", chat
