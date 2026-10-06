@@ -73,6 +73,7 @@ PROVIDER_KEYS = (
     # Avatar readiness metadata. GPU registration remains a deploy concern.
     "TELEPAT_AVATAR_ENGINE",
     "TELEPAT_AVATAR_GPU_ENABLED",
+    "TELEPAT_AVATAR_RENDER_TIMEOUT_SECONDS",
 )
 
 
