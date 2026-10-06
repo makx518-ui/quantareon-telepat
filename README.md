@@ -81,12 +81,17 @@ Confirmed in the live Modal environment:
 - `/health` responds successfully
 - `/health/providers` exposes provider configuration only as booleans
 - `/health/readiness` separates core readiness from external-provider readiness
+- `/health/provider-contract` lists missing configuration names without values
+- `/health/production-readiness` lists remaining product blockers
+- `/health/metrics` exposes privacy-safe latency/error aggregates
 - `/session/bootstrap` creates/reuses TELEPAT identity and session
 - `/chat` completes an orchestrated turn
 - `/ws/voice` accepts a real WebSocket connection
 - deterministic Astrofractal runs inside Modal and produces the natal machine output
 - browser/voice protocol returns a controlled STT status when Deepgram is absent
 - HTTP and WebSocket smoke tests run automatically after Modal deployment
+- expensive chat/Astro/voice-connect paths are rate-limited
+- Memory API supports configurable auth header/scheme without changing the adapter
 
 The deterministic core is ready. Real external providers are not yet attached
 to the Modal environment, so current live conversation falls back to the mock
@@ -118,6 +123,18 @@ Implemented:
 The next voice gate is a real provider-backed run:
 `microphone -> Deepgram -> LLM -> TTS -> browser`.
 
+## Production hardening already in place
+
+- bounded session TTL/history/session-count
+- one active Modal CPU container while session state is in-process
+- atomic conversation history commit only after successful LLM response
+- explicit 503 / voice `stage=llm` for real provider outages
+- graceful drain of background Memory writes
+- privacy-safe in-process latency metrics
+- provider configuration contract and production readiness report
+- fixed-window rate limits for expensive public routes
+- engine-neutral avatar benchmark harness
+
 ## Modal CPU / GPU split
 
 CPU deployment is independent from GPU registration.
@@ -128,7 +145,9 @@ unselected until benchmark time.
 
 For the current in-memory Session Manager, the CPU web function is temporarily
 limited to one container. This constraint can be removed after shared session
-state is attached.
+state is attached. The avatar benchmark harness is already ready for the future
+L4 comparison and measures warm-up, p50/p95 render latency, real-time factor,
+output size and peak VRAM.
 
 ## Automation
 
