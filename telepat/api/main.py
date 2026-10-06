@@ -12,7 +12,11 @@ from telepat.api.session import (
     bootstrap_session,
     prepare_session_astro,
 )
-from telepat.api.status import provider_status, readiness_status
+from telepat.api.status import (
+    provider_contract,
+    provider_status,
+    readiness_status,
+)
 from telepat.astro.models import AstroSummary, BirthData
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
@@ -77,6 +81,11 @@ async def health() -> dict[str, object]:
 @app.get("/health/providers")
 async def health_providers() -> dict[str, bool]:
     return provider_status()
+
+
+@app.get("/health/provider-contract")
+async def health_provider_contract() -> dict[str, object]:
+    return provider_contract()
 
 
 @app.get("/health/readiness")
