@@ -185,6 +185,28 @@ class VoiceSession:
             if text:
                 await self._handle_control(text)
 
+    async def _end_by_policy(self, reason: str) -> None:
+        if self._closed:
+            return
+
+        try:
+            await self.websocket.send_json(
+                {
+                    "type": "session_end",
+                    "reason": reason,
+                }
+            )
+        except Exception:
+            pass
+
+        try:
+            await self.websocket.close(
+                code=1000,
+                reason=reason,
+            )
+        except Exception:
+            pass
+
     async def _handle_control(self, text: str) -> None:
         try:
             message = json.loads(text)
