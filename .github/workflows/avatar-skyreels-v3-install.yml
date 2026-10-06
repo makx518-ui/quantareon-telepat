@@ -1,0 +1,81 @@
+name: TELEPAT SkyReels V3 Install
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/skyreels-v3-install-trigger"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telepat-skyreels-v3-install
+  cancel-in-progress: false
+
+jobs:
+  install:
+    name: Install SkyReels V3 Talking Avatar
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal CLI
+        run: pip install "modal>=1.6,<2"
+
+      - name: Normalize Modal auth
+        shell: bash
+        run: |
+          CLEAN_ID="$(printf '%s' "$MODAL_TOKEN_ID" | grep -oE 'ak-[A-Za-z0-9]+' | head -n1)"
+          CLEAN_SECRET="$(printf '%s' "$MODAL_TOKEN_SECRET" | grep -oE 'as-[A-Za-z0-9]+' | head -n1)"
+          test -n "$CLEAN_ID"
+          test -n "$CLEAN_SECRET"
+          echo "::add-mask::$CLEAN_ID"
+          echo "::add-mask::$CLEAN_SECRET"
+          echo "MODAL_TOKEN_ID=$CLEAN_ID" >> "$GITHUB_ENV"
+          echo "MODAL_TOKEN_SECRET=$CLEAN_SECRET" >> "$GITHUB_ENV"
+
+      - name: Deploy pinned SkyReels V3 app
+        run: python -m modal deploy deploy/avatar_skyreels_v3.py
+
+      - name: Probe L40S worker
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout 900s python -m deploy.run_skyreels_v3 probe             | tee skyreels-v3-probe.json
+
+      - name: Download TalkingAvatar 19B to persistent volume
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout 5400s python -m deploy.run_skyreels_v3 prepare             | tee skyreels-v3-prepare.json
+
+      - name: Probe prepared installation
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout 900s python -m deploy.run_skyreels_v3 probe             | tee skyreels-v3-ready.json
+
+      - name: Publish installation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: telepat-skyreels-v3-install
+          path: |
+            skyreels-v3-probe.json
+            skyreels-v3-prepare.json
+            skyreels-v3-ready.json
+          if-no-files-found: error
+          retention-days: 14
