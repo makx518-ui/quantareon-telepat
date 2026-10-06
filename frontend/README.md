@@ -196,3 +196,26 @@ The runtime keeps UI/Astro language and spoken-language detection separate:
 - `language` controls bootstrap/Astro/UI language.
 - `voiceLanguage: "auto"` is the default and lets Deepgram detect each spoken
   utterance independently before routing LLM/TTS.
+
+
+## Runtime diagnostics and session usage
+
+The facade also exposes product/runtime status without the page knowing backend
+route details:
+
+```js
+const readiness = await telepat.readiness();
+const production = await telepat.productionReadiness();
+const providers = await telepat.providerContract();
+```
+
+After bootstrap, the site may read the current session's token/cost counters:
+
+```js
+const usage = await telepat.usage();
+```
+
+`usage()` automatically supplies the current `session_id` and `user_id`.
+It never exposes another session's counters. Pricing is reported only for model
+ids configured in `TELEPAT_COST_RATES_JSON`; unknown models remain explicitly
+unpriced instead of using guessed rates.
