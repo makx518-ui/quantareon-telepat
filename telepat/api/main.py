@@ -26,7 +26,7 @@ from telepat.config.preflight import configuration_preflight
 from telepat.config.settings import settings
 from telepat.core.models import ChatRequest, ChatResponse
 from telepat.core.orchestrator import orchestrator
-from telepat.core.session_manager import session_manager
+from telepat.core.session_service import session_store
 from telepat.llm.router import ConversationUnavailableError
 from telepat.observability.metrics import runtime_metrics
 from telepat.observability.usage import usage_registry
@@ -135,7 +135,7 @@ async def session_usage(
     session_id: str,
     user_id: str,
 ) -> dict[str, object]:
-    session = session_manager.get(session_id)
+    session = session_store.get(session_id)
     if session is None or session.user_id != user_id:
         raise HTTPException(
             status_code=404,
@@ -213,7 +213,7 @@ async def prepare_astro_session(
             headers={"Retry-After": "60"},
         )
 
-    session = session_manager.get_or_create(
+    session = session_store.get_or_create(
         session_id=request.session_id,
         user_id=request.user_id,
         language=request.language,
