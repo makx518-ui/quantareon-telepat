@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import logging
 import os
+from time import perf_counter
 from typing import Any
 
 import httpx
+
+from telepat.observability.metrics import runtime_metrics
 
 from .identity import legacy_memory_user_id
 
@@ -45,6 +48,7 @@ class RemoteMemoryAdapter:
             "level": level,
         }
 
+        started = perf_counter()
         try:
             async with httpx.AsyncClient(timeout=12.0) as client:
                 response = await client.post(
@@ -54,8 +58,21 @@ class RemoteMemoryAdapter:
                 response.raise_for_status()
                 data = response.json()
         except Exception as exc:
+            runtime_metrics.record(
+                "memory_recall",
+                (perf_counter() - started) * 1000,
+                ok=False,
+                provider="remote-memory",
+            )
             logger.warning("Memory recall unavailable: %s", type(exc).__name__)
             return {}
+
+        runtime_metrics.record(
+            "memory_recall",
+            (perf_counter() - started) * 1000,
+            ok=True,
+            provider="remote-memory",
+        )
 
         # Keep the rich M2 layers normalized rather than flattening everything
         # into one opaque prompt string.
@@ -87,6 +104,7 @@ class RemoteMemoryAdapter:
             "response": response_text,
         }
 
+        started = perf_counter()
         try:
             async with httpx.AsyncClient(timeout=12.0) as client:
                 response = await client.post(
@@ -95,8 +113,22 @@ class RemoteMemoryAdapter:
                 )
                 response.raise_for_status()
         except Exception as exc:
+            runtime_metrics.record(
+                "memory_store",
+                (perf_counter() - started) * 1000,
+                ok=False,
+                provider="remote-memory",
+            )
             # Memory failure must never break the live conversation.
             logger.warning("Memory store unavailable: %s", type(exc).__name__)
+            return
+
+        runtime_metrics.record(
+            "memory_store",
+            (perf_counter() - started) * 1000,
+            ok=True,
+            provider="remote-memory",
+        )
 
 
 remote_memory = RemoteMemoryAdapter()
