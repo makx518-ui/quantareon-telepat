@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from threading import RLock
 from uuid import uuid4
 
-from .models import ConversationTurn, SessionState
+from .models import ChatResponse, ConversationTurn, SessionState
 
 
 class SessionManager:
@@ -28,6 +29,7 @@ class SessionManager:
         ttl_seconds: float | None = None,
         max_sessions: int | None = None,
         max_history_turns: int | None = None,
+        max_idempotency_entries: int | None = None,
         clock: Callable[[], float] | None = None,
     ) -> None:
         self.ttl_seconds = float(
@@ -45,10 +47,19 @@ class SessionManager:
             if max_history_turns is not None
             else os.getenv("TELEPAT_MAX_HISTORY_TURNS", "60")
         )
+        self.max_idempotency_entries = int(
+            max_idempotency_entries
+            if max_idempotency_entries is not None
+            else os.getenv("TELEPAT_IDEMPOTENCY_ENTRIES", "32")
+        )
 
         self._clock = clock or time.monotonic
         self._sessions: dict[str, SessionState] = {}
         self._last_seen: dict[str, float] = {}
+        self._responses: dict[
+            str,
+            OrderedDict[str, ChatResponse],
+        ] = {}
         self._lock = RLock()
 
     def _touch_locked(self, session_id: str) -> None:
@@ -57,6 +68,7 @@ class SessionManager:
     def _delete_locked(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
         self._last_seen.pop(session_id, None)
+        self._responses.pop(session_id, None)
 
     def _purge_stale_locked(self) -> None:
         if self.ttl_seconds <= 0:
@@ -155,6 +167,43 @@ class SessionManager:
     ) -> None:
         with self._lock:
             self._sessions[session_id].metadata.update(values)
+            self._touch_locked(session_id)
+
+    def get_idempotent_response(
+        self,
+        session_id: str,
+        request_id: str,
+    ) -> ChatResponse | None:
+        with self._lock:
+            bucket = self._responses.get(session_id)
+            if not bucket:
+                return None
+            response = bucket.get(request_id)
+            if response is not None:
+                bucket.move_to_end(request_id)
+                self._touch_locked(session_id)
+            return response
+
+    def set_idempotent_response(
+        self,
+        session_id: str,
+        request_id: str,
+        response: ChatResponse,
+    ) -> None:
+        if self.max_idempotency_entries <= 0:
+            return
+
+        with self._lock:
+            bucket = self._responses.setdefault(
+                session_id,
+                OrderedDict(),
+            )
+            bucket[request_id] = response
+            bucket.move_to_end(request_id)
+
+            while len(bucket) > self.max_idempotency_entries:
+                bucket.popitem(last=False)
+
             self._touch_locked(session_id)
 
     def get(self, session_id: str) -> SessionState | None:
