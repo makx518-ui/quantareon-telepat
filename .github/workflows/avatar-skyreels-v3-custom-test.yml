@@ -52,3 +52,5 @@ jobs:
           path: telepat-skyreels-custom-5s.mp4
           if-no-files-found: error
           retention-days: 14
+
+# trigger: compact-jpeg-v3
