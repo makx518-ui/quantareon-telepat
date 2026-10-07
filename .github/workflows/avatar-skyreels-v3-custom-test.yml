@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/avatar-skyreels-v3-custom-test.yml"
+      - "test_assets/telepat-master-test.jpg"
+      - "test_assets/telepat-greeting-5s.mp3"
+      - "deploy/run_skyreels_custom_test.py"
   workflow_dispatch:
 
 permissions:
